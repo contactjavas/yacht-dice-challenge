@@ -4,16 +4,22 @@ export function useWebSocket() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const MAX_RECONNECT_ATTEMPTS = 5;
+  const [connectionFailed, setConnectionFailed] = useState(false); // Track if connection completely failed
+  const MAX_RECONNECT_ATTEMPTS = 3; // Reduced from 5 to avoid too many retries
   const RECONNECT_DELAY = 2000;
   
   // Function to create a new WebSocket connection
   const createWebSocket = useCallback(() => {
+    // If we've determined that connection has completely failed, don't try anymore
+    if (connectionFailed) {
+      console.warn('WebSocket: Connection has previously failed completely, not attempting reconnection');
+      return null;
+    }
+    
     try {
       // Initialize WebSocket connection
       // Make sure we get the correct host and protocol for WebSocket connection
       const isSecure = window.location.protocol === 'https:';
-      const protocol = isSecure ? 'wss:' : 'ws:';
       const hostname = window.location.host;
       const domainName = window.location.hostname;
       const port = window.location.port;
@@ -21,38 +27,48 @@ export function useWebSocket() {
       // Enhanced debug information about the WebSocket connection environment
       console.log('WebSocket Environment Detection:', {
         windowLocation: window.location.toString(),
-        wsProtocol: protocol,
+        wsProtocol: isSecure ? 'wss:' : 'ws:',
         hostname,
         domainName,
         port,
         isSecure,
-        isReplit: domainName.includes('.replit.dev') || domainName.includes('.repl.co')
+        isReplit: domainName.includes('.replit.dev') || domainName.includes('.repl.co'),
+        reconnectAttempts
       });
       
       // Ensure we have a valid hostname before creating the WebSocket
       if (!hostname) {
         console.error('Invalid hostname for WebSocket connection');
+        setConnectionFailed(true);
         return null;
       }
       
-      // Construct WebSocket URL
+      // Construct WebSocket URL - ALWAYS use relative path for maximum compatibility
       let wsUrl;
       
+      // Always use the simplest possible approach to avoid any URL construction issues
+      wsUrl = '/ws';
+      console.log('Using relative WebSocket path for maximum compatibility:', wsUrl);
+      
+      // Catch and handle WebSocket connection errors
+      let ws: WebSocket;
       try {
-        // Safer approach - always use a relative WebSocket URL
-        // This works in all environments including Replit, local dev, and production
-        wsUrl = '/ws';
-        console.log('Using relative WebSocket path for maximum compatibility');
+        ws = new WebSocket(wsUrl);
       } catch (error) {
-        console.error('Error constructing WebSocket URL:', error);
-        // Really safe fallback in case try block throws
-        wsUrl = '/ws';
-        console.log('Using fallback relative WebSocket path due to error');
+        // Specifically handle the "invalid URL" error with detailed logging
+        console.error('Failed to construct WebSocket:', error);
+        
+        // Check for the specific "undefined" error we're seeing
+        if (error instanceof SyntaxError && 
+            (error.message.includes('invalid') || error.message.includes('undefined'))) {
+          console.error('This is the undefined port error we are looking for. Marking connection as failed.');
+          setConnectionFailed(true);
+          return null;
+        }
+        
+        // For any other error, throw it to be caught by the outer catch block
+        throw error;
       }
-      
-      console.log('Attempting WebSocket connection to:', wsUrl);
-      
-      const ws = new WebSocket(wsUrl);
       
       // Connection opened
       ws.addEventListener('open', () => {
@@ -71,25 +87,46 @@ export function useWebSocket() {
         }
       });
       
-      // Connection closed
+      // Connection closed with better error discrimination
       ws.addEventListener('close', (event) => {
         console.log('WebSocket connection closed with code:', event.code, 'reason:', event.reason);
         
+        // Detect if this is likely a Vite HMR WebSocket being closed during development
+        // Normal codes are 1000 (normal closure) and 1001 (going away)
+        // Random closes without reason that happen immediately are likely from HMR
+        const isLikelyHMRClose = !event.reason && event.code === 1006 && reconnectAttempts > 0;
+        
+        if (isLikelyHMRClose) {
+          console.log('This appears to be a Vite HMR WebSocket close. Preventing excessive reconnect loop.');
+          // Only reconnect once more, and if that fails, give up to prevent loops
+          if (reconnectAttempts >= 1) {
+            console.log('Already attempted reconnect after HMR close. Stopping to prevent loop.');
+            setConnectionFailed(true);
+            return;
+          }
+        }
+        
+        // Normal reconnection flow
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           console.log(`Attempting to reconnect (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
           setReconnecting(true);
           setReconnectAttempts(prev => prev + 1);
           
-          // Attempt to reconnect after a delay
+          // Attempt to reconnect after a delay with exponential backoff
+          const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
+          console.log(`Will attempt reconnect in ${delay}ms`);
+          
           setTimeout(() => {
             const newWs = createWebSocket();
             if (newWs) {
               setSocket(newWs);
+            } else {
+              console.log('Failed to create new WebSocket during reconnect attempt');
             }
-          }, RECONNECT_DELAY * (reconnectAttempts + 1)); // Increasing delay with each attempt
+          }, delay);
         } else {
-          console.log('Maximum reconnection attempts reached. Reloading page...');
-          window.location.reload();
+          console.log('Maximum reconnection attempts reached.');
+          setConnectionFailed(true);
         }
       });
       
@@ -145,10 +182,51 @@ export function useWebSocket() {
     }
   }, [reconnectAttempts]);
   
+  // Create a function to show an alert about connection issues
+  const showConnectionIssueAlert = useCallback(() => {
+    // This would typically use your app's toast or alert mechanism
+    console.error("CRITICAL: WebSocket connection failed completely. Please refresh the page or try again later.");
+    
+    // Create a user-visible error message element
+    const existingAlert = document.getElementById('ws-connection-error');
+    if (!existingAlert) {
+      // Create an error banner at the top of the page
+      const alertDiv = document.createElement('div');
+      alertDiv.id = 'ws-connection-error';
+      alertDiv.style.position = 'fixed';
+      alertDiv.style.top = '0';
+      alertDiv.style.left = '0';
+      alertDiv.style.right = '0';
+      alertDiv.style.backgroundColor = '#f44336';
+      alertDiv.style.color = 'white';
+      alertDiv.style.padding = '10px';
+      alertDiv.style.textAlign = 'center';
+      alertDiv.style.zIndex = '9999';
+      alertDiv.innerHTML = 'Connection to game server failed. <button id="ws-reload-btn" style="background: white; color: #f44336; border: none; padding: 5px 10px; border-radius: 4px; margin-left: 10px; cursor: pointer;">Refresh Page</button>';
+      
+      document.body.prepend(alertDiv);
+      
+      // Add reload button functionality
+      document.getElementById('ws-reload-btn')?.addEventListener('click', () => {
+        window.location.reload();
+      });
+    }
+  }, []);
+
+  // Monitor the connectionFailed state and show alert when it changes to true
+  useEffect(() => {
+    if (connectionFailed) {
+      showConnectionIssueAlert();
+    }
+  }, [connectionFailed, showConnectionIssueAlert]);
+
   useEffect(() => {
     const ws = createWebSocket();
     if (ws) {
       setSocket(ws);
+    } else if (connectionFailed) {
+      // If createWebSocket returns null because of connectionFailed, show the alert
+      showConnectionIssueAlert();
     }
     
     // Set up a ping timer to keep the connection alive
@@ -175,7 +253,7 @@ export function useWebSocket() {
         ws.close();
       }
     };
-  }, [createWebSocket, socket]);
+  }, [createWebSocket, socket, connectionFailed, showConnectionIssueAlert]);
   
   return socket;
 }
