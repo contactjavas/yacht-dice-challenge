@@ -39,26 +39,13 @@ export function useWebSocket() {
       let wsUrl;
       
       try {
-        // On Replit, we use the direct relative path approach to avoid any issues with the hostname
-        if (window.location.hostname.includes('.replit.dev') || 
-            window.location.hostname.includes('.repl.co')) {
-          // For Replit deployment, use a relative path
-          // This avoids issues with hostname resolution on Replit
-          wsUrl = '/ws';
-          console.log('Using Replit environment relative WebSocket path');
-        } else if (hostname.includes('localhost')) {
-          // For local development
-          const port = window.location.port || '5000';
-          wsUrl = `${protocol}//localhost:${port}/ws`;
-          console.log('Using localhost WebSocket connection with port', port);
-        } else {
-          // Fallback for other environments - use the current host
-          wsUrl = `${protocol}//${hostname}/ws`;
-          console.log('Using standard WebSocket connection for non-Replit environment');
-        }
+        // Safer approach - always use a relative WebSocket URL
+        // This works in all environments including Replit, local dev, and production
+        wsUrl = '/ws';
+        console.log('Using relative WebSocket path for maximum compatibility');
       } catch (error) {
         console.error('Error constructing WebSocket URL:', error);
-        // Safe fallback - always use a relative path as the safest option
+        // Really safe fallback in case try block throws
         wsUrl = '/ws';
         console.log('Using fallback relative WebSocket path due to error');
       }
@@ -106,11 +93,19 @@ export function useWebSocket() {
         }
       });
       
-      // Connection error
+      // Connection error with improved handling
       ws.addEventListener('error', (error) => {
         console.error(`[WebSocket][${new Date().toISOString()}] Error on connection to ${wsUrl}:`, error);
         console.log('WebSocket readyState:', ws.readyState);
-        setReconnecting(true);
+        
+        // Don't set reconnecting immediately - wait for the close event which follows error events
+        // This prevents multiple reconnection attempts
+        if (ws.readyState === WebSocket.CLOSED) {
+          console.log('WebSocket already closed after error - triggering reconnect');
+          setReconnecting(true);
+        } else {
+          console.log('WebSocket error but not closed - waiting for close event');
+        }
       });
       
       // Message received debug

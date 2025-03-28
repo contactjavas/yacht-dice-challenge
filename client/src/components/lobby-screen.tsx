@@ -146,7 +146,7 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
   // Function to safely send WebSocket messages with retry
   const safeSendMessage = (message: any) => {
     if (!socket) {
-      console.warn('No WebSocket connection available');
+      console.warn('LobbyScreen: No WebSocket connection available');
       toast({
         title: "Connection Issue",
         description: "No connection to game server. Please refresh the page.",
@@ -159,10 +159,10 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
       try {
         const messageStr = JSON.stringify(message);
         socket.send(messageStr);
-        console.log(`Successfully sent message: ${message.action}`);
+        console.log(`LobbyScreen: Successfully sent message: ${message.action}`);
         return true;
       } catch (error) {
-        console.error('Error sending WebSocket message:', error);
+        console.error('LobbyScreen: Error sending WebSocket message:', error);
         toast({
           title: "Message Error",
           description: "Failed to send your action to the server. Please try again.",
@@ -171,7 +171,7 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
         return false;
       }
     } else {
-      console.warn(`Socket not ready, current state: ${socket.readyState}`);
+      console.warn(`LobbyScreen: Socket not ready, current state: ${socket.readyState}`);
       
       // Show different messages based on the state
       const stateMessages = {
