@@ -231,9 +231,14 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
   // Check if user is the host
   const isHost = game?.hostId === user.id;
   
-  // Check if game can be started
-  const canStartGame = isHost && (game?.players.length || 0) >= 2 && 
-    game?.players.every(player => player.isReady || player.userId === user.id);
+  // Check if game can be started (now allowing single-player mode)
+  const canStartGame = isHost && (
+    // Either multiple players where everyone is ready
+    ((game?.players.length || 0) >= 2 && 
+     game?.players.every(player => player.isReady || player.userId === user.id)) ||
+    // OR single-player mode (just the host)
+    ((game?.players.length || 0) === 1 && game?.players[0]?.userId === user.id)
+  );
   
   // Check this player's ready status
   const isReady = game?.players.find(p => p.userId === user.id)?.isReady || false;
@@ -366,14 +371,16 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
                 <div className="text-sm text-neutral-300 mb-1">
                   <i className="fas fa-info-circle mr-1"></i> 
                   {game?.players.length === 1 
-                    ? "Waiting for more players to join..." 
+                    ? "You can start playing alone (single-player mode) or wait for more players to join..." 
                     : isHost && !canStartGame 
                       ? "Waiting for all players to be ready..."
                       : "Ready to start when the host is ready!"
                   }
                 </div>
                 <div className="text-xs text-neutral-400">
-                  Game will start when the host is ready and at least 2 players have joined.
+                  {isHost && game?.players.length === 1 
+                    ? "You can start the game in single-player mode for practice, or invite others to join."
+                    : "Game will start when the host is ready and at least one player is present."}
                 </div>
               </div>
               

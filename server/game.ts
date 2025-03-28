@@ -180,7 +180,7 @@ export class GameManager {
     }
   }
 
-  // Start a game
+  // Start a game (now supports single-player)
   async startGame(gameId: number, hostId: number): Promise<GameState | undefined> {
     try {
       const game = await storage.getGame(gameId);
@@ -189,15 +189,25 @@ export class GameManager {
       // Verify it's the host
       if (game.hostId !== hostId) return undefined;
       
-      // Ensure at least 2 players
+      // Get players for this game
       const players = await storage.getPlayersByGameId(game.id);
-      if (players.length < 2) return undefined;
+      
+      // Allow single-player mode (for testing/practice)
+      if (players.length === 0) {
+        console.error('No players found for game', gameId);
+        return undefined;
+      }
       
       // Sort players by turn order
       players.sort((a, b) => a.turnOrder - b.turnOrder);
       
       // Set first player as the current player
       const firstPlayer = players[0];
+      
+      // Log single player mode if detected
+      if (players.length === 1) {
+        console.log('Starting game in SINGLE PLAYER MODE for testing/practice');
+      }
       
       const updatedGame = await storage.updateGame(game.id, {
         status: 'in_progress',
