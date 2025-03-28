@@ -91,29 +91,43 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
     // Function to register the player when socket is ready
     const registerPlayer = () => {
       // Only send when socket is open (readyState === 1)
-      if (socket.readyState === 1) {
+      if (socket && socket.readyState === 1) {
         console.log(`GameScreen: Registering player ${playerId} for game ${game.id}`);
-        socket.send(JSON.stringify({
-          action: 'REGISTER_PLAYER',
-          gameId: game.id,
-          playerId: playerId
-        }));
+        try {
+          socket.send(JSON.stringify({
+            action: 'REGISTER_PLAYER',
+            gameId: game.id,
+            playerId: playerId
+          }));
+          console.log('GameScreen: Successfully sent player registration message');
+        } catch (error) {
+          console.error('GameScreen: Failed to send player registration:', error);
+        }
       } else {
-        console.log('GameScreen: Socket not ready yet. Current state:', socket.readyState);
+        console.log('GameScreen: Socket not ready yet for player registration. Current state:', socket?.readyState);
       }
     };
     
     // Handle socket open event
     const handleSocketOpen = () => {
       console.log('GameScreen: WebSocket connection is open, registering player');
-      registerPlayer();
+      setTimeout(() => {
+        // Add a small delay to ensure socket is fully established
+        if (socket && socket.readyState === 1) {
+          registerPlayer();
+        } else {
+          console.warn('GameScreen: Socket still not ready after open event, readyState:', socket?.readyState);
+        }
+      }, 100);
     };
     
-    // If socket is already open, register immediately
-    if (socket.readyState === 1) {
+    // If socket is already open, register immediately with safety check
+    if (socket && socket.readyState === 1) {
+      console.log('GameScreen: Socket already open, registering immediately');
       registerPlayer();
     } else {
       // Otherwise wait for the open event
+      console.log('GameScreen: Socket not ready yet, waiting for open event. Current state:', socket?.readyState);
       socket.addEventListener('open', handleSocketOpen);
     }
     
@@ -146,18 +160,46 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
     };
   }, [socket, game, playerId]);
   
-  // Function to safely send WebSocket messages
+  // Function to safely send WebSocket messages with retry and enhanced error handling
   const safeSendMessage = (message: any) => {
-    if (!socket) return false;
-    
-    if (socket.readyState === 1) {
-      socket.send(JSON.stringify(message));
-      return true;
-    } else {
-      console.warn('GameScreen: Socket not ready, current state:', socket.readyState);
+    if (!socket) {
+      console.warn('GameScreen: No WebSocket connection available');
       toast({
         title: "Connection Issue",
-        description: "Please wait while we reconnect to the server",
+        description: "No connection to game server. Please refresh the page.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    if (socket.readyState === 1) { // WebSocket.OPEN
+      try {
+        const messageStr = JSON.stringify(message);
+        socket.send(messageStr);
+        console.log(`GameScreen: Successfully sent message: ${message.action}`);
+        return true;
+      } catch (error) {
+        console.error('GameScreen: Error sending WebSocket message:', error);
+        toast({
+          title: "Message Error",
+          description: "Failed to send your action to the server. Please try again.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } else {
+      console.warn(`GameScreen: Socket not ready, current state: ${socket.readyState}`);
+      
+      // Show different messages based on the state
+      const stateMessages = {
+        0: "Connecting to server...", // CONNECTING
+        2: "Disconnecting from server...", // CLOSING
+        3: "Connection closed. Please refresh the page.", // CLOSED
+      };
+      
+      toast({
+        title: "Connection Issue",
+        description: stateMessages[socket.readyState as 0 | 2 | 3] || "Please wait while we reconnect to the server",
         variant: "destructive",
       });
       return false;
