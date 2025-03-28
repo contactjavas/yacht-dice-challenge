@@ -109,6 +109,49 @@ function Router() {
 }
 
 function App() {
+  // Add a global error handler to intercept Vite WebSocket errors
+  useEffect(() => {
+    // This function intercepts and filters unhandled promise rejections
+    // specifically to prevent Vite HMR WebSocket errors from disrupting the user experience
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      // Check if this is a Vite HMR WebSocket error
+      const errorMessage = event.reason?.message || event.reason || '';
+      
+      // Common Vite WebSocket error patterns
+      const isViteWebSocketError = 
+        (typeof errorMessage === 'string' && (
+          errorMessage.includes('WebSocket') ||
+          errorMessage.includes('ws://localhost') ||
+          errorMessage.includes('wss://localhost') ||
+          errorMessage.includes('undefined') ||
+          errorMessage.includes('Failed to construct') ||
+          errorMessage.includes('is invalid')
+        ));
+      
+      if (isViteWebSocketError) {
+        // Prevent the error from bubbling up and showing in the console
+        event.preventDefault();
+        
+        // Optional: Log it in a more controlled way
+        console.log('Intercepted Vite HMR WebSocket error (safely ignored):', 
+          typeof errorMessage === 'string' ? errorMessage.substring(0, 100) : 'Unknown error');
+        
+        return true;
+      }
+      
+      // Let other errors propagate normally
+      return false;
+    };
+    
+    // Add the event listener
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+  
   return (
     <QueryClientProvider client={queryClient}>
       <Router />

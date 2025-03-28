@@ -52,7 +52,22 @@ export function useWebSocket() {
       // Catch and handle WebSocket connection errors
       let ws: WebSocket;
       try {
-        ws = new WebSocket(wsUrl);
+        // Handle common Vite WebSocket connection issues during development
+        // We explicitly check if this is a Replit environment to apply our specialized logic
+        const isReplitEnvironment = domainName.includes('.replit.dev') || domainName.includes('.repl.co');
+        
+        // For Replit environment, we need to be even more careful about the WebSocket URL
+        if (isReplitEnvironment) {
+          // Special handling for Replit environment - don't rely on window.location.protocol
+          // Sometimes window.location can have incorrect values in Replit preview
+          const wsProtocolForReplit = 'wss:'; // Always use secure in Replit
+          const wsRepl = new WebSocket(`${wsProtocolForReplit}//${domainName}/ws`);
+          ws = wsRepl;
+          console.log(`[${new Date().toISOString()}] Created WebSocket in Replit environment: ${wsProtocolForReplit}//${domainName}/ws`);
+        } else {
+          ws = new WebSocket(wsUrl);
+          console.log(`[${new Date().toISOString()}] Created WebSocket with standard URL: ${wsUrl}`);
+        }
       } catch (error) {
         // Specifically handle the "invalid URL" error with detailed logging
         console.error('Failed to construct WebSocket:', error);
@@ -60,13 +75,22 @@ export function useWebSocket() {
         // Check for the specific "undefined" error we're seeing
         if (error instanceof SyntaxError && 
             (error.message.includes('invalid') || error.message.includes('undefined'))) {
-          console.error('This is the undefined port error we are looking for. Marking connection as failed.');
-          setConnectionFailed(true);
-          return null;
+          console.error('This is the undefined port error we are looking for. Attempting fallback connection.');
+          
+          // Try a fallback approach using only the hostname without port
+          try {
+            const fallbackUrl = `wss://${domainName}/ws`;
+            console.log(`[${new Date().toISOString()}] Attempting fallback WebSocket URL: ${fallbackUrl}`);
+            ws = new WebSocket(fallbackUrl);
+          } catch (fallbackError) {
+            console.error('Fallback WebSocket connection also failed:', fallbackError);
+            setConnectionFailed(true);
+            return null;
+          }
+        } else {
+          // For any other error, throw it to be caught by the outer catch block
+          throw error;
         }
-        
-        // For any other error, throw it to be caught by the outer catch block
-        throw error;
       }
       
       // Connection opened
