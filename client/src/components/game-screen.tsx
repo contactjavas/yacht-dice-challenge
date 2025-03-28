@@ -84,80 +84,142 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
     joinGame();
   }, [gameCode, user.id, navigate, toast]);
   
-  // Setup WebSocket connection
+  // Setup WebSocket connection with robust error handling
   useEffect(() => {
-    if (!socket || !game || !playerId) return;
+    // Don't try to use WebSocket until all required data is available
+    if (!game || !playerId) {
+      console.log('GameScreen: Missing game or playerId - waiting...');
+      return;
+    }
+
+    // Handle the case where the socket isn't available yet
+    if (!socket) {
+      console.log('GameScreen: Socket not yet available - waiting for connection');
+      return;
+    }
+
+    console.log(`GameScreen: Ready to connect for player ${playerId} (socket state: ${socket.readyState})`);
     
-    // Function to register the player when socket is ready
+    // Safe function to register the player with appropriate error handling
     const registerPlayer = () => {
-      // Only send when socket is open (readyState === 1)
-      if (socket && socket.readyState === 1) {
+      try {
+        // Double-check the socket is actually in the OPEN state before attempting to send
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          console.warn(`GameScreen: Cannot register player - WebSocket not OPEN (current state: ${socket?.readyState})`);
+          return;
+        }
+        
         console.log(`GameScreen: Registering player ${playerId} for game ${game.id}`);
+        
+        // Send player registration with error handling
         try {
-          socket.send(JSON.stringify({
+          // Prepare message with only the required information
+          const message = JSON.stringify({
             action: 'REGISTER_PLAYER',
             gameId: game.id,
             playerId: playerId
-          }));
+          });
+          
+          // Send the message
+          socket.send(message);
           console.log('GameScreen: Successfully sent player registration message');
         } catch (error) {
           console.error('GameScreen: Failed to send player registration:', error);
         }
-      } else {
-        console.log('GameScreen: Socket not ready yet for player registration. Current state:', socket?.readyState);
+      } catch (error) {
+        console.error('GameScreen: Error during player registration process:', error);
       }
     };
     
-    // Handle socket open event
-    const handleSocketOpen = () => {
-      console.log('GameScreen: WebSocket connection is open, registering player');
-      setTimeout(() => {
-        // Add a small delay to ensure socket is fully established
-        if (socket && socket.readyState === 1) {
-          registerPlayer();
-        } else {
-          console.warn('GameScreen: Socket still not ready after open event, readyState:', socket?.readyState);
-        }
-      }, 100);
-    };
-    
-    // If socket is already open, register immediately with safety check
-    if (socket && socket.readyState === 1) {
-      console.log('GameScreen: Socket already open, registering immediately');
-      registerPlayer();
-    } else {
-      // Otherwise wait for the open event
-      console.log('GameScreen: Socket not ready yet, waiting for open event. Current state:', socket?.readyState);
-      socket.addEventListener('open', handleSocketOpen);
-    }
-    
-    // Handle socket messages
+    // Handle socket messages with robust error handling
     const handleSocketMessage = (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data);
+        // Parse the message data with error handling
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (parseError) {
+          console.error('GameScreen: Failed to parse WebSocket message:', parseError);
+          return;
+        }
         
-        if (data.type === 'GAME_UPDATE') {
+        // Process GAME_UPDATE messages with safety checks
+        if (data && data.type === 'GAME_UPDATE' && data.payload) {
+          // Update game state
           setGame(data.payload);
           
-          // If game is completed, show winner modal
+          // Check game status with explicit safety check
           if (data.payload.status === 'completed') {
             setShowWinnerModal(true);
           }
           
-          // If dice have been rolled, update selection
-          setSelectedDice(data.payload.selectedDice);
+          // Update dice selection with safety check
+          if (Array.isArray(data.payload.selectedDice)) {
+            setSelectedDice(data.payload.selectedDice);
+          }
         }
       } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
+        console.error('GameScreen: Error handling WebSocket message:', error);
       }
     };
     
-    socket.addEventListener('message', handleSocketMessage);
-    
-    return () => {
-      socket.removeEventListener('open', handleSocketOpen);
-      socket.removeEventListener('message', handleSocketMessage);
+    // Define event cleanup handlers
+    let removeListeners = () => {
+      try {
+        if (socket) {
+          socket.removeEventListener('message', handleSocketMessage);
+        }
+      } catch (error) {
+        console.error('GameScreen: Error cleaning up WebSocket event listeners:', error);
+      }
     };
+    
+    // Start fresh by clearing any existing listeners
+    removeListeners();
+    
+    // Set up the message listener
+    try {
+      socket.addEventListener('message', handleSocketMessage);
+    } catch (error) {
+      console.error('GameScreen: Error adding WebSocket message listener:', error);
+    }
+    
+    // Register the player based on socket state with proper error handling
+    if (socket.readyState === WebSocket.OPEN) {
+      // Socket is already open, so register immediately
+      console.log('GameScreen: Socket is OPEN, registering player immediately');
+      registerPlayer();
+    } else if (socket.readyState === WebSocket.CONNECTING) {
+      // Socket is connecting, so we need to wait for it to open
+      console.log('GameScreen: Socket is CONNECTING, waiting for open event');
+      
+      // Define the open handler function
+      const handleOpen = () => {
+        console.log('GameScreen: WebSocket opened, now registering player');
+        // Small delay to ensure full connection establishment
+        setTimeout(registerPlayer, 100);
+      };
+      
+      // Add the open event listener
+      try {
+        socket.addEventListener('open', handleOpen);
+        
+        // Create a new cleanup function that also removes the open listener
+        const originalRemoveListeners = removeListeners;
+        removeListeners = () => {
+          originalRemoveListeners();
+          socket.removeEventListener('open', handleOpen);
+        };
+      } catch (error) {
+        console.error('GameScreen: Error adding WebSocket open listener:', error);
+      }
+    } else {
+      // Socket is in CLOSING or CLOSED state, this is not expected
+      console.warn(`GameScreen: Socket is in unexpected state: ${socket.readyState}`);
+    }
+    
+    // Return a cleanup function to remove event listeners when component unmounts
+    return removeListeners;
   }, [socket, game, playerId]);
   
   // Function to safely send WebSocket messages with retry and enhanced error handling
