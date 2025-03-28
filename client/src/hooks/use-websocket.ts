@@ -43,12 +43,11 @@ export function useWebSocket() {
         return null;
       }
       
-      // Construct WebSocket URL - ALWAYS use relative path for maximum compatibility
-      let wsUrl;
+      // Properly construct full WebSocket URL - this is critical to avoid connection issues
+      const wsProtocol = isSecure ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${hostname}/ws`;
       
-      // Always use the simplest possible approach to avoid any URL construction issues
-      wsUrl = '/ws';
-      console.log('Using relative WebSocket path for maximum compatibility:', wsUrl);
+      console.log(`[${new Date().toISOString()}] Connecting to WebSocket at full URL: ${wsUrl}`);
       
       // Catch and handle WebSocket connection errors
       let ws: WebSocket;
@@ -220,40 +219,83 @@ export function useWebSocket() {
     }
   }, [connectionFailed, showConnectionIssueAlert]);
 
+  // This useEffect is for the initial connection and reconnection logic
   useEffect(() => {
+    console.log(`[${new Date().toISOString()}] Setting up WebSocket connection. Previous attempts: ${reconnectAttempts}`);
+    
+    // Create the WebSocket connection
     const ws = createWebSocket();
     if (ws) {
+      console.log(`[${new Date().toISOString()}] Initial WebSocket created successfully, readyState: ${ws.readyState}`);
       setSocket(ws);
+      
+      // Set up a manual health check to detect stalled connections
+      const healthCheckId = setInterval(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.warn(`[${new Date().toISOString()}] Health check found WebSocket in state ${ws.readyState}, not OPEN (1)`);
+          if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+            console.warn('WebSocket found closed during health check. Clearing interval and attempting reconnect.');
+            clearInterval(healthCheckId);
+            
+            // Only attempt reconnect if we haven't hit our max attempts
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+              setReconnecting(true);
+              setReconnectAttempts(prev => prev + 1);
+            } else {
+              setConnectionFailed(true);
+            }
+          }
+        } else {
+          console.log(`[${new Date().toISOString()}] WebSocket health check: Connection is OPEN`);
+        }
+      }, 5000); // Check every 5 seconds
+      
+      // Clean up on unmount
+      return () => {
+        clearInterval(healthCheckId);
+        console.log('Unmounting component - closing WebSocket connection');
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close(1000, 'Component unmounted');
+        }
+      };
     } else if (connectionFailed) {
       // If createWebSocket returns null because of connectionFailed, show the alert
       showConnectionIssueAlert();
     }
     
+    // No cleanup function if ws is null
+    return () => {}; 
+  }, [createWebSocket, reconnectAttempts, connectionFailed, showConnectionIssueAlert]);
+  
+  // Separate useEffect for ping/pong keep-alive
+  useEffect(() => {
+    if (!socket) return;
+    
+    console.log(`[${new Date().toISOString()}] Setting up ping interval for WebSocket`);
+    
     // Set up a ping timer to keep the connection alive
     const pingInterval = setInterval(() => {
-      if (socket && socket.readyState === 1) {
+      if (socket && socket.readyState === WebSocket.OPEN) {
         try {
           socket.send(JSON.stringify({ 
             type: 'CLIENT_PING',
             timestamp: new Date().toISOString() 
           }));
-          console.log('Sent client ping to server');
+          console.log(`[${new Date().toISOString()}] Sent client ping to server`);
         } catch (err) {
-          console.error('Failed to send client ping:', err);
+          console.error(`[${new Date().toISOString()}] Failed to send client ping:`, err);
         }
+      } else if (socket) {
+        console.warn(`[${new Date().toISOString()}] Cannot send ping - socket state: ${socket.readyState}`);
       }
-    }, 30000); // Send a ping every 30 seconds
+    }, 15000); // Send a ping every 15 seconds (reduced from 30s for more frequent keepalive)
     
-    // Clean up the WebSocket connection when the component unmounts
+    // Clean up only the ping interval when socket changes
     return () => {
       clearInterval(pingInterval);
-      
-      if (ws) {
-        console.log('Closing WebSocket connection');
-        ws.close();
-      }
+      console.log(`[${new Date().toISOString()}] Cleaned up ping interval`);
     };
-  }, [createWebSocket, socket, connectionFailed, showConnectionIssueAlert]);
+  }, [socket]);
   
   return socket;
 }
