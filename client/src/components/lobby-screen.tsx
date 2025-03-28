@@ -10,9 +10,10 @@ import { useWebSocket } from "@/hooks/use-websocket";
 interface LobbyScreenProps {
   user: User;
   gameCode: string;
+  onLogout: () => void;
 }
 
-export default function LobbyScreen({ user, gameCode }: LobbyScreenProps) {
+export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -131,6 +132,11 @@ export default function LobbyScreen({ user, gameCode }: LobbyScreenProps) {
     navigate('/');
   };
   
+  // Function to handle logout
+  const handleLogout = () => {
+    onLogout();
+  };
+  
   // Function to copy game code
   const copyGameCode = () => {
     navigator.clipboard.writeText(gameCode);
@@ -186,6 +192,15 @@ export default function LobbyScreen({ user, gameCode }: LobbyScreenProps) {
               onClick={leaveLobby}
             >
               <i className="fas fa-sign-out-alt"></i>
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-9 w-9 text-neutral-400 hover:text-red-500 transition-colors" 
+              title="Logout"
+              onClick={handleLogout}
+            >
+              <i className="fas fa-power-off"></i>
             </Button>
           </div>
         </header>

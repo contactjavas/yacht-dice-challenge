@@ -87,18 +87,18 @@ function Router() {
   return (
     <Switch>
       <Route path="/">
-        <HomeScreen user={user} onLogin={handleUserLogin} />
+        <HomeScreen user={user} onLogin={handleUserLogin} onLogout={handleLogout} />
       </Route>
       <Route path="/lobby/:code">
         {params => user ? 
-          <LobbyScreen user={user} gameCode={params.code} /> : 
-          <HomeScreen user={user} onLogin={handleUserLogin} />
+          <LobbyScreen user={user} gameCode={params.code} onLogout={handleLogout} /> : 
+          <HomeScreen user={user} onLogin={handleUserLogin} onLogout={handleLogout} />
         }
       </Route>
       <Route path="/game/:code">
         {params => user ?
           <GameScreen user={user} gameCode={params.code} onLogout={handleLogout} /> :
-          <HomeScreen user={user} onLogin={handleUserLogin} />
+          <HomeScreen user={user} onLogin={handleUserLogin} onLogout={handleLogout} />
         }
       </Route>
       <Route>

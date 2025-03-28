@@ -136,38 +136,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // WebSocket handling
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('New WebSocket connection established from', req.socket.remoteAddress);
+    console.log('Connection URL:', req.url);
+    
     let playerId: number | null = null;
     let gameId: number | null = null;
+    let connectionId = Math.random().toString(36).substring(2, 10);
+    
+    console.log(`WebSocket connection [${connectionId}] established`);
     
     // Handle messages from clients
     ws.on('message', async (message: string) => {
       try {
         const data = JSON.parse(message) as GameAction;
+        console.log(`WS [${connectionId}] received message:`, { action: data.action, gameId: data.gameId, playerId: data.playerId });
         
         // Handle authentication/initialization
         if (data.action === 'REGISTER_PLAYER') {
           playerId = data.playerId || null;
           gameId = data.gameId || null;
           
+          console.log(`WS [${connectionId}] registering player:`, { playerId, gameId });
+          
           if (playerId && gameId) {
             // Register this connection for the player
             gameManager.registerPlayerConnection(playerId, ws);
+            console.log(`WS [${connectionId}] player ${playerId} registered for game ${gameId}`);
             
             // Send current game state
             const gameState = gameManager.getGameState(gameId);
             if (gameState) {
+              console.log(`WS [${connectionId}] sending initial game state to player ${playerId}`);
               ws.send(JSON.stringify({
                 type: 'GAME_UPDATE',
                 payload: gameState
               }));
+            } else {
+              console.warn(`WS [${connectionId}] game state not found for game ${gameId}`);
             }
+          } else {
+            console.error(`WS [${connectionId}] invalid player registration:`, { playerId, gameId });
           }
           return;
         }
         
         // Ensure player is authenticated
         if (!playerId || !gameId) {
+          console.error(`WS [${connectionId}] unauthenticated action:`, data.action);
           ws.send(JSON.stringify({
             type: 'ERROR',
             payload: 'Not authenticated. Send REGISTER_PLAYER first.'
@@ -179,85 +195,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
         switch (data.action) {
           case 'START_GAME':
             if (data.data?.hostId) {
+              console.log(`WS [${connectionId}] starting game ${gameId} by host ${data.data.hostId}`);
               const gameState = await gameManager.startGame(gameId, data.data.hostId);
               if (gameState) {
                 gameManager.broadcastGameUpdate(gameId);
+              } else {
+                console.error(`WS [${connectionId}] failed to start game ${gameId}`);
               }
+            } else {
+              console.error(`WS [${connectionId}] missing hostId for START_GAME action`);
             }
             break;
             
           case 'ROLL_DICE':
             if (data.data?.selectedDice) {
+              console.log(`WS [${connectionId}] player ${playerId} rolling dice in game ${gameId}`);
               const gameState = await gameManager.rollDice(gameId, playerId, data.data.selectedDice);
               if (gameState) {
                 gameManager.broadcastGameUpdate(gameId);
+              } else {
+                console.error(`WS [${connectionId}] dice roll failed for player ${playerId} in game ${gameId}`);
               }
+            } else {
+              console.error(`WS [${connectionId}] missing selectedDice for ROLL_DICE action`);
             }
             break;
             
           case 'SELECT_DICE':
             if (data.data?.diceIndices) {
+              console.log(`WS [${connectionId}] player ${playerId} selecting dice in game ${gameId}`);
               const gameState = await gameManager.selectDice(gameId, playerId, data.data.diceIndices);
               if (gameState) {
                 gameManager.broadcastGameUpdate(gameId);
+              } else {
+                console.error(`WS [${connectionId}] dice selection failed for player ${playerId} in game ${gameId}`);
               }
+            } else {
+              console.error(`WS [${connectionId}] missing diceIndices for SELECT_DICE action`);
             }
             break;
             
           case 'SCORE_CATEGORY':
             if (data.data?.category) {
+              console.log(`WS [${connectionId}] player ${playerId} scoring category ${data.data.category} in game ${gameId}`);
               const gameState = await gameManager.scoreCategory(gameId, playerId, data.data.category);
               if (gameState) {
                 gameManager.broadcastGameUpdate(gameId);
+              } else {
+                console.error(`WS [${connectionId}] category scoring failed for player ${playerId} in game ${gameId}`);
               }
+            } else {
+              console.error(`WS [${connectionId}] missing category for SCORE_CATEGORY action`);
             }
             break;
             
           case 'PASS_TURN':
+            console.log(`WS [${connectionId}] player ${playerId} passing turn in game ${gameId}`);
             const gameState = await gameManager.passTurn(gameId, playerId);
             if (gameState) {
               gameManager.broadcastGameUpdate(gameId);
+            } else {
+              console.error(`WS [${connectionId}] pass turn failed for player ${playerId} in game ${gameId}`);
             }
             break;
             
           case 'TOGGLE_READY':
+            console.log(`WS [${connectionId}] player ${playerId} toggling ready status in game ${gameId}`);
             const updatedState = await gameManager.togglePlayerReady(gameId, playerId);
             if (updatedState) {
               gameManager.broadcastGameUpdate(gameId);
+            } else {
+              console.error(`WS [${connectionId}] toggle ready failed for player ${playerId} in game ${gameId}`);
             }
             break;
             
           case 'RESTART_GAME':
             if (data.data?.hostId) {
+              console.log(`WS [${connectionId}] restarting game ${gameId} by host ${data.data.hostId}`);
               const gameState = await gameManager.restartGame(gameId, data.data.hostId);
               if (gameState) {
                 gameManager.broadcastGameUpdate(gameId);
+              } else {
+                console.error(`WS [${connectionId}] failed to restart game ${gameId}`);
               }
+            } else {
+              console.error(`WS [${connectionId}] missing hostId for RESTART_GAME action`);
             }
             break;
             
           default:
+            console.error(`WS [${connectionId}] unknown action:`, data.action);
             ws.send(JSON.stringify({
               type: 'ERROR',
               payload: 'Unknown action'
             }));
         }
       } catch (error) {
-        console.error('Error handling WebSocket message:', error);
-        ws.send(JSON.stringify({
-          type: 'ERROR',
-          payload: 'Error processing message'
-        }));
+        console.error(`WS [${connectionId}] error handling message:`, error);
+        try {
+          ws.send(JSON.stringify({
+            type: 'ERROR',
+            payload: 'Error processing message'
+          }));
+        } catch (e) {
+          console.error(`WS [${connectionId}] failed to send error response:`, e);
+        }
       }
     });
     
+    // Handle errors
+    ws.on('error', (error) => {
+      console.error(`WS [${connectionId}] connection error:`, error);
+    });
+    
     // Handle disconnection
-    ws.on('close', () => {
+    ws.on('close', (code, reason) => {
+      console.log(`WS [${connectionId}] connection closed with code ${code}`, reason ? `reason: ${reason}` : '');
       if (playerId) {
+        console.log(`WS [${connectionId}] unregistering player ${playerId} connection`);
         // Unregister connection
         gameManager.unregisterPlayerConnection(playerId, ws);
       }
     });
+    
+    // Send initial confirmation
+    try {
+      ws.send(JSON.stringify({
+        type: 'CONNECTED',
+        payload: { connectionId }
+      }));
+    } catch (e) {
+      console.error(`WS [${connectionId}] failed to send initial connection confirmation:`, e);
+    }
   });
   
   return httpServer;

@@ -11,9 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 interface HomeScreenProps {
   user: User | null;
   onLogin: (username: string) => Promise<void>;
+  onLogout: () => void;
 }
 
-export default function HomeScreen({ user, onLogin }: HomeScreenProps) {
+export default function HomeScreen({ user, onLogin, onLogout }: HomeScreenProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [gameCode, setGameCode] = useState("");
@@ -151,13 +152,21 @@ export default function HomeScreen({ user, onLogin }: HomeScreenProps) {
             </form>
           </div>
           
-          <div className="mt-8 text-sm text-neutral-400">
+          <div className="mt-8 text-sm text-neutral-400 flex flex-wrap justify-center items-center gap-2">
             <Button variant="link" className="text-primary hover:underline p-0" onClick={() => setIsHowToPlayOpen(true)}>
               How to play
             </Button> • 
-            <Button variant="link" className="text-primary hover:underline p-0 ml-2" onClick={() => setIsAboutOpen(true)}>
+            <Button variant="link" className="text-primary hover:underline p-0" onClick={() => setIsAboutOpen(true)}>
               About
             </Button>
+            {user && (
+              <>
+                •
+                <Button variant="link" className="text-red-500 hover:underline p-0" onClick={onLogout}>
+                  Logout ({user.username})
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
