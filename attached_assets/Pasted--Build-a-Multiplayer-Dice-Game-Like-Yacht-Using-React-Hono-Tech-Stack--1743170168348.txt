@@ -1,0 +1,144 @@
+# **🚀 Build a Multiplayer Dice Game (Like Yacht) Using React & Hono**
+
+## **🛠️ Tech Stack**
+
+- **Frontend:** React, TailwindCSS, WebSockets for real-time updates.
+- **Backend:** Hono (NodeJS), WebSockets, **Drizzle ORM** (with **Drizzle Kit**) & **better-sqlite3** for database management.
+- **Dice Animation:** [`dice-box`](https://github.com/3d-dice/dice-box) for 3D dice visualization ([https://github.com/3d-dice/dice-box](https://github.com/3d-dice/dice-box)).
+- **Dice Logic:** [`dice-roller`](https://dice-roller.github.io/documentation/) for secure server-side dice generation (https\://dice-roller.github.io/documentation/guide/).
+
+---
+
+## **🎮 Features to Implement**
+
+### **1️⃣ Core Gameplay**
+
+- 🎲 **Dice Rolling Animation** using `dice-box` on the client.
+- 🎲 **Server-Side Dice Generation** with `dice-roller` to prevent cheating.
+- 🔄 **Turn-Based System** where players take turns rolling and selecting dice.
+- 📊 **Score Calculation** supporting:
+  - Ones, Twos, Threes, Fours, Fives, Sixes
+  - Full House, Small Straight, Large Straight, Three of a Kind, Four of a Kind, etc.
+- ⏳ **Turn Timer** (Auto-pass turn if a player is inactive).
+
+---
+
+### **2️⃣ Multiplayer & Real-Time Features**
+
+- 🏠 **Lobby System** for game room creation and joining.
+- 🔥 **WebSocket-Based Live Updates** for real-time gameplay sync.
+- 🔄 **Reconnect Handling** to allow players to rejoin after disconnecting.
+- 🎮 **Game Rematch System** to restart a match with the same group.
+
+---
+
+### **3️⃣ UI/UX Features**
+
+- 📱 **Mobile-Friendly UI** using React & TailwindCSS.
+- 📜 **Game History & Leaderboard** to track past matches.
+- 🏆 **Winner Announcement** at the end of each match.
+
+---
+
+## **🛠️ Database Schema (Drizzle ORM with better-sqlite3)**
+
+### **🔹 Users Table**
+
+```ts
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey().autoincrement(),
+  username: text('username').unique().notNull(),
+  createdAt: text('created_at').default('CURRENT_TIMESTAMP')
+});
+```
+
+### **🔹 Games Table**
+
+```ts
+export const games = sqliteTable('games', {
+  id: integer('id').primaryKey().autoincrement(),
+  hostId: integer('host_id').notNull(),
+  status: text('status', ['waiting', 'in_progress', 'completed']).default('waiting'),
+  createdAt: text('created_at').default('CURRENT_TIMESTAMP')
+});
+```
+
+### **🔹 Players Table**
+
+```ts
+export const players = sqliteTable('players', {
+  id: integer('id').primaryKey().autoincrement(),
+  gameId: integer('game_id').notNull(),
+  userId: integer('user_id').notNull(),
+  score: integer('score').default(0),
+  turnOrder: integer('turn_order').notNull()
+});
+```
+
+### **🔹 Rounds Table**
+
+```ts
+export const rounds = sqliteTable('rounds', {
+  id: integer('id').primaryKey().autoincrement(),
+  gameId: integer('game_id').notNull(),
+  playerId: integer('player_id').notNull(),
+  roundNumber: integer('round_number').notNull(),
+  diceValues: text('dice_values').notNull(),
+  score: integer('score').default(0)
+});
+```
+
+---
+
+## **🎲 Game Flow (Step-by-Step)**
+
+### **🟢 1. Lobby Creation & Joining**
+
+1. Host **creates a game** → Receives a unique `game_id`.
+2. Other players **join using the game code**.
+3. When all players are ready, **host starts the game**.
+
+### **🎲 2. Playing the Game (Turn-Based)**
+
+1. **Active player rolls dice** (client animation, values from the server).
+2. **Player selects dice** for a scoring category.
+3. **Score is calculated & saved** in the database.
+4. **Turn passes to the next player** automatically.
+   - ⏳ If a player is inactive, their turn **is skipped**.
+   - 🔄 WebSockets send **live updates** to all players.
+
+### **🏆 3. Ending the Game & Rematch**
+
+1. After all rounds, **scores are compared** and the winner is determined.
+2. The **winner is displayed** on all clients.
+3. Players can **rematch** or **leave the lobby**.
+4. **Game history is saved** for review later.
+
+---
+
+## **📌 Next Steps**
+
+- Implement WebSocket logic in Hono for real-time updates.
+- Create React UI components (Lobby, Dice, Scoreboard).
+- Integrate `dice-box` and `dice-roller` for rolling mechanics.
+- Setup **Drizzle ORM with better-sqlite3** for efficient database handling.
+
+---
+
+## **🛠️ Build This on Replit**
+
+1. Create a new **Node.js + Drizzle ORM + better-sqlite3** project.
+2. Install dependencies:
+   ```sh
+   npm install hono ws drizzle-orm drizzle-kit better-sqlite3 dice-roller react tailwindcss
+   ```
+3. Set up the backend (`server.ts`) with Hono & WebSockets.
+4. Create the frontend (`App.tsx`) with React UI components.
+5. Implement game logic and real-time updates.
+
+---
+
+**🎯 Build the game step by step, ensuring real-time synchronization and a smooth UI!** 🚀
+
