@@ -15,12 +15,19 @@ export function useWebSocket() {
       const isSecure = window.location.protocol === 'https:';
       const protocol = isSecure ? 'wss:' : 'ws:';
       const hostname = window.location.host;
+      const domainName = window.location.hostname;
+      const port = window.location.port;
       
-      // Debug information about the WebSocket connection
-      console.log('WebSocket Debug Info:');
-      console.log('- Window Location:', window.location.toString());
-      console.log('- Protocol:', protocol);
-      console.log('- Hostname:', hostname);
+      // Enhanced debug information about the WebSocket connection environment
+      console.log('WebSocket Environment Detection:', {
+        windowLocation: window.location.toString(),
+        wsProtocol: protocol,
+        hostname,
+        domainName,
+        port,
+        isSecure,
+        isReplit: domainName.includes('.replit.dev') || domainName.includes('.repl.co')
+      });
       
       // Ensure we have a valid hostname before creating the WebSocket
       if (!hostname) {
@@ -28,7 +35,34 @@ export function useWebSocket() {
         return null;
       }
       
-      const wsUrl = `${protocol}//${hostname}/ws`;
+      // Construct WebSocket URL
+      let wsUrl;
+      
+      try {
+        // On Replit, we use the direct relative path approach to avoid any issues with the hostname
+        if (window.location.hostname.includes('.replit.dev') || 
+            window.location.hostname.includes('.repl.co')) {
+          // For Replit deployment, use a relative path
+          // This avoids issues with hostname resolution on Replit
+          wsUrl = '/ws';
+          console.log('Using Replit environment relative WebSocket path');
+        } else if (hostname.includes('localhost')) {
+          // For local development
+          const port = window.location.port || '5000';
+          wsUrl = `${protocol}//localhost:${port}/ws`;
+          console.log('Using localhost WebSocket connection with port', port);
+        } else {
+          // Fallback for other environments - use the current host
+          wsUrl = `${protocol}//${hostname}/ws`;
+          console.log('Using standard WebSocket connection for non-Replit environment');
+        }
+      } catch (error) {
+        console.error('Error constructing WebSocket URL:', error);
+        // Safe fallback - always use a relative path as the safest option
+        wsUrl = '/ws';
+        console.log('Using fallback relative WebSocket path due to error');
+      }
+      
       console.log('Attempting WebSocket connection to:', wsUrl);
       
       const ws = new WebSocket(wsUrl);
@@ -74,15 +108,19 @@ export function useWebSocket() {
       
       // Connection error
       ws.addEventListener('error', (error) => {
-        console.error('WebSocket error:', error);
+        console.error(`[WebSocket][${new Date().toISOString()}] Error on connection to ${wsUrl}:`, error);
+        console.log('WebSocket readyState:', ws.readyState);
         setReconnecting(true);
       });
       
       // Message received debug
       ws.addEventListener('message', (event) => {
+        // Add more detailed debug info
+        console.log(`[WebSocket][${new Date().toISOString()}] Message received on ${wsUrl}`);
+        
         try {
           const data = JSON.parse(event.data);
-          console.log('WebSocket message received:', { 
+          console.log('WebSocket message data:', { 
             type: data.type, 
             hasPayload: !!data.payload,
             timestamp: new Date().toISOString()

@@ -12,7 +12,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Initialize WebSocket server
+  console.log('Setting up WebSocket server on path: /ws');
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Log WebSocket server info
+  wss.on('listening', () => {
+    console.log('WebSocket server is listening for connections');
+  });
   
   // GET /api/games/:code - Get game by code
   app.get('/api/games/:code', async (req, res) => {
