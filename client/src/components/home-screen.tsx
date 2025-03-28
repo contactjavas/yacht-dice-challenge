@@ -29,6 +29,9 @@ export default function HomeScreen({ user, onLogin }: HomeScreenProps) {
       return;
     }
     
+    // Debug log - check what user data is available
+    console.log('User data when creating game:', user);
+    
     try {
       const res = await fetch('/api/games', {
         method: 'POST',
@@ -38,18 +41,26 @@ export default function HomeScreen({ user, onLogin }: HomeScreenProps) {
         body: JSON.stringify({ hostId: user.id }),
       });
       
+      // Debug log - check response
+      console.log('Create game response status:', res.status);
+      
       if (!res.ok) {
+        const errorData = await res.json();
+        console.error('Error data:', errorData);
+        
         toast({
           title: "Error",
-          description: "Failed to create game",
+          description: errorData.message || "Failed to create game",
           variant: "destructive",
         });
         return;
       }
       
       const game = await res.json();
+      console.log('Game created:', game);
       navigate(`/lobby/${game.code}`);
     } catch (error) {
+      console.error('Create game error:', error);
       toast({
         title: "Error",
         description: "Failed to connect to server",

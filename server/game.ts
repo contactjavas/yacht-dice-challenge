@@ -87,30 +87,50 @@ export class GameManager {
   // Create a new game
   async createGame(hostId: number): Promise<GameState | undefined> {
     try {
+      console.log('GameManager.createGame - hostId:', hostId);
+      
       const host = await storage.getUser(hostId);
-      if (!host) return undefined;
+      console.log('GameManager.createGame - host lookup result:', host);
+      
+      if (!host) {
+        console.log('GameManager.createGame - host not found');
+        return undefined;
+      }
 
+      console.log('GameManager.createGame - generating game code');
       const gameCode = this.generateGameCode();
+      console.log('GameManager.createGame - game code generated:', gameCode);
+      
+      console.log('GameManager.createGame - creating game record');
       const game = await storage.createGame({
         code: gameCode,
         hostId: host.id,
         status: 'waiting'
       });
+      console.log('GameManager.createGame - game created:', game);
 
       // Add host as the first player
+      console.log('GameManager.createGame - adding host as player');
       const player = await storage.createPlayer({
         gameId: game.id,
         userId: host.id,
         turnOrder: 1
       });
+      console.log('GameManager.createGame - player created:', player);
 
       // Create empty score card for the player
+      console.log('GameManager.createGame - creating score card');
       await storage.createScoreCard({
         playerId: player.id,
         gameId: game.id
       });
+      console.log('GameManager.createGame - score card created');
 
-      return this.initializeGameState(game);
+      console.log('GameManager.createGame - initializing game state');
+      const gameState = await this.initializeGameState(game);
+      console.log('GameManager.createGame - game state initialized');
+      
+      return gameState;
     } catch (error) {
       console.error('Error creating game:', error);
       return undefined;

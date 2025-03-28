@@ -30,6 +30,8 @@ function Router() {
   // Function to handle user creation/login
   const handleUserLogin = async (username: string) => {
     try {
+      console.log('Logging in with username:', username);
+      
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: {
@@ -38,8 +40,15 @@ function Router() {
         body: JSON.stringify({ username }),
       });
       
+      console.log('Login response status:', res.status);
+      
+      // Important: Clone the response before reading it as JSON
+      // This is because reading the response as JSON consumes the response body
+      const resClone = res.clone();
+      
       if (!res.ok) {
         const data = await res.json();
+        console.error('Login error data:', data);
         toast({
           title: "Login Failed",
           description: data.message || "Failed to login",
@@ -48,7 +57,9 @@ function Router() {
         return;
       }
       
-      const userData = await res.json();
+      const userData = await resClone.json();
+      console.log('User data from login:', userData);
+      
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
       
@@ -57,6 +68,7 @@ function Router() {
         description: `Logged in as ${userData.username}`,
       });
     } catch (error) {
+      console.error('Login error:', error);
       toast({
         title: "Error",
         description: "Failed to connect to server",

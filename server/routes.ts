@@ -60,6 +60,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/games - Create a new game
   app.post('/api/games', async (req, res) => {
     try {
+      console.log('Create game request body:', req.body);
+      
       const schema = z.object({
         hostId: z.number()
       });
@@ -67,13 +69,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = schema.safeParse(req.body);
       
       if (!result.success) {
+        console.log('Invalid game data:', result.error.format());
         return res.status(400).json({ message: 'Invalid game data', errors: result.error.format() });
       }
       
       const { hostId } = result.data;
+      console.log('Parsed hostId:', hostId);
       
       // Check if host exists
       const host = await storage.getUser(hostId);
+      console.log('Host user lookup result:', host);
+      
       if (!host) {
         return res.status(404).json({ message: 'Host user not found' });
       }
@@ -83,6 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: 'Failed to create game' });
       }
       
+      console.log('Game created successfully:', gameState.id, gameState.code);
       res.status(201).json(gameState);
     } catch (error) {
       console.error('Error creating game:', error);
