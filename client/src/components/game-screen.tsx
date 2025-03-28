@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@shared/schema";
-import { GameState, ScoreCategory, DiceRoll } from "@shared/types";
+import { GameState, ScoreCategory, DiceRoll, ScoreCardDisplay } from "@shared/types";
 import { useWebSocket } from "@/hooks/use-websocket";
 import DiceBox from "@/components/dice-box";
 import Scorecard from "@/components/scorecard";
@@ -88,13 +88,36 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
   useEffect(() => {
     if (!socket || !game || !playerId) return;
     
-    // Register this player
-    socket.send(JSON.stringify({
-      action: 'REGISTER_PLAYER',
-      gameId: game.id,
-      playerId: playerId
-    }));
+    // Function to register the player when socket is ready
+    const registerPlayer = () => {
+      // Only send when socket is open (readyState === 1)
+      if (socket.readyState === 1) {
+        console.log(`GameScreen: Registering player ${playerId} for game ${game.id}`);
+        socket.send(JSON.stringify({
+          action: 'REGISTER_PLAYER',
+          gameId: game.id,
+          playerId: playerId
+        }));
+      } else {
+        console.log('GameScreen: Socket not ready yet. Current state:', socket.readyState);
+      }
+    };
     
+    // Handle socket open event
+    const handleSocketOpen = () => {
+      console.log('GameScreen: WebSocket connection is open, registering player');
+      registerPlayer();
+    };
+    
+    // If socket is already open, register immediately
+    if (socket.readyState === 1) {
+      registerPlayer();
+    } else {
+      // Otherwise wait for the open event
+      socket.addEventListener('open', handleSocketOpen);
+    }
+    
+    // Handle socket messages
     const handleSocketMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
@@ -118,10 +141,29 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
     socket.addEventListener('message', handleSocketMessage);
     
     return () => {
+      socket.removeEventListener('open', handleSocketOpen);
       socket.removeEventListener('message', handleSocketMessage);
     };
   }, [socket, game, playerId]);
   
+  // Function to safely send WebSocket messages
+  const safeSendMessage = (message: any) => {
+    if (!socket) return false;
+    
+    if (socket.readyState === 1) {
+      socket.send(JSON.stringify(message));
+      return true;
+    } else {
+      console.warn('GameScreen: Socket not ready, current state:', socket.readyState);
+      toast({
+        title: "Connection Issue",
+        description: "Please wait while we reconnect to the server",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   // Function to toggle dice selection
   const toggleDiceSelection = (index: number) => {
     if (!isMyTurn || rollingDice) return;
@@ -136,12 +178,12 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
         .map((selected, i) => selected ? i : -1)
         .filter(i => i >= 0);
       
-      socket.send(JSON.stringify({
+      safeSendMessage({
         action: 'SELECT_DICE',
         gameId: game.id,
         playerId: playerId,
         data: { diceIndices: selectedIndices }
-      }));
+      });
     }
   };
   
@@ -152,12 +194,12 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
     setRollingDice(true);
     
     // Send roll request to server
-    socket.send(JSON.stringify({
+    safeSendMessage({
       action: 'ROLL_DICE',
       gameId: game.id,
       playerId: playerId,
       data: { selectedDice }
-    }));
+    });
     
     // Reset dice selection after roll
     setSelectedDice([false, false, false, false, false]);
@@ -172,23 +214,23 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
   const passTurn = () => {
     if (!socket || !game || !playerId || !isMyTurn) return;
     
-    socket.send(JSON.stringify({
+    safeSendMessage({
       action: 'PASS_TURN',
       gameId: game.id,
       playerId: playerId
-    }));
+    });
   };
   
   // Function to score a category
   const scoreCategory = (category: ScoreCategory) => {
     if (!socket || !game || !playerId || !isMyTurn) return;
     
-    socket.send(JSON.stringify({
+    safeSendMessage({
       action: 'SCORE_CATEGORY',
       gameId: game.id,
       playerId: playerId,
       data: { category }
-    }));
+    });
   };
   
   // Function to play again
@@ -197,11 +239,11 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
     
     // Only host can restart the game
     if (game.hostId === user.id) {
-      socket.send(JSON.stringify({
+      safeSendMessage({
         action: 'RESTART_GAME',
         gameId: game.id,
         data: { hostId: user.id }
-      }));
+      });
     }
     
     setShowWinnerModal(false);
@@ -473,13 +515,13 @@ export default function GameScreen({ user, gameCode, onLogout }: GameScreenProps
           ))}
           
           {/* More button if more than 2 players */}
-          {(game?.players.length || 0) > 2 && (
+          {game?.players && game.players.length > 2 && (
             <div className="flex flex-col items-center text-neutral-400">
               <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center mb-1">
                 <i className="fas fa-ellipsis-h text-sm"></i>
               </div>
               <div className="text-sm">More</div>
-              <div className="text-xs font-bold">{game?.players.length - 2}</div>
+              <div className="text-xs font-bold">{game.players!.length - 2}</div>
             </div>
           )}
           

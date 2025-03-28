@@ -1,6 +1,5 @@
 import type { Express } from "express";
-import { WebSocketServer } from 'ws';
-import type { WebSocket } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { gameManager } from "./game";
@@ -143,14 +142,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let playerId: number | null = null;
     let gameId: number | null = null;
     let connectionId = Math.random().toString(36).substring(2, 10);
+    let lastPingTime = Date.now();
     
     console.log(`WebSocket connection [${connectionId}] established`);
+    
+    // Send initial connection confirmation
+    try {
+      ws.send(JSON.stringify({
+        type: 'CONNECTED',
+        payload: {
+          connectionId,
+          timestamp: new Date().toISOString()
+        }
+      }));
+    } catch (error) {
+      console.error(`WS [${connectionId}] Error sending initial connection message:`, error);
+    }
+    
+    // Set up ping interval to keep connection alive
+    const pingInterval = setInterval(() => {
+      // Only ping if connection is open (readyState === 1)
+      if (ws.readyState === 1) {
+        try {
+          // If we haven't received a ping in 60 seconds, assume connection is stale
+          const timeSinceLastPing = Date.now() - lastPingTime;
+          if (timeSinceLastPing > 60000 && playerId && gameId) {
+            console.log(`WS [${connectionId}] Connection appears stale, no activity for ${timeSinceLastPing}ms`);
+          }
+          
+          // Send ping message
+          ws.send(JSON.stringify({
+            type: 'PING',
+            timestamp: new Date().toISOString()
+          }));
+        } catch (error) {
+          console.error(`WS [${connectionId}] Error sending ping:`, error);
+          clearInterval(pingInterval);
+        }
+      } else {
+        // Clear interval if connection is no longer open
+        clearInterval(pingInterval);
+      }
+    }, 30000); // Ping every 30 seconds
     
     // Handle messages from clients
     ws.on('message', async (message: string) => {
       try {
-        const data = JSON.parse(message) as GameAction;
-        console.log(`WS [${connectionId}] received message:`, { action: data.action, gameId: data.gameId, playerId: data.playerId });
+        // Update last ping time on any message
+        lastPingTime = Date.now();
+        
+        const data = JSON.parse(message);
+        
+        // Handle ping/pong messages
+        if (data.type === 'CLIENT_PING') {
+          try {
+            ws.send(JSON.stringify({
+              type: 'SERVER_PONG',
+              timestamp: new Date().toISOString()
+            }));
+            return;
+          } catch (error) {
+            console.error(`WS [${connectionId}] Error sending pong response:`, error);
+          }
+        }
+        
+        if (data.type === 'PONG' || data.type === 'CONNECTION_ACK') {
+          console.log(`WS [${connectionId}] Received ${data.type} message`);
+          return;
+        }
+        
+        // Handle game actions
+        const gameAction = data as GameAction;
+        console.log(`WS [${connectionId}] received message:`, { 
+          action: gameAction.action, 
+          gameId: gameAction.gameId, 
+          playerId: gameAction.playerId 
+        });
         
         // Handle authentication/initialization
         if (data.action === 'REGISTER_PLAYER') {
@@ -316,17 +383,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Unregister connection
         gameManager.unregisterPlayerConnection(playerId, ws);
       }
+      
+      // Clean up ping interval on disconnect
+      clearInterval(pingInterval);
     });
-    
-    // Send initial confirmation
-    try {
-      ws.send(JSON.stringify({
-        type: 'CONNECTED',
-        payload: { connectionId }
-      }));
-    } catch (e) {
-      console.error(`WS [${connectionId}] failed to send initial connection confirmation:`, e);
-    }
   });
   
   return httpServer;

@@ -74,13 +74,36 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
   useEffect(() => {
     if (!socket || !game || !playerId) return;
     
-    // Register this player
-    socket.send(JSON.stringify({
-      action: 'REGISTER_PLAYER',
-      gameId: game.id,
-      playerId: playerId
-    }));
+    // Function to register the player when socket is ready
+    const registerPlayer = () => {
+      // Only send when socket is open (readyState === 1)
+      if (socket.readyState === 1) {
+        console.log(`Registering player ${playerId} for game ${game.id}`);
+        socket.send(JSON.stringify({
+          action: 'REGISTER_PLAYER',
+          gameId: game.id,
+          playerId: playerId
+        }));
+      } else {
+        console.log('Socket not ready yet. Current state:', socket.readyState);
+      }
+    };
     
+    // Handle socket open event
+    const handleSocketOpen = () => {
+      console.log('WebSocket connection is open, registering player');
+      registerPlayer();
+    };
+    
+    // If socket is already open, register immediately
+    if (socket.readyState === 1) {
+      registerPlayer();
+    } else {
+      // Otherwise wait for the open event
+      socket.addEventListener('open', handleSocketOpen);
+    }
+    
+    // Handle socket messages
     const handleSocketMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
@@ -101,30 +124,49 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
     socket.addEventListener('message', handleSocketMessage);
     
     return () => {
+      socket.removeEventListener('open', handleSocketOpen);
       socket.removeEventListener('message', handleSocketMessage);
     };
   }, [socket, game, playerId, gameCode, navigate]);
   
+  // Function to safely send WebSocket messages
+  const safeSendMessage = (message: any) => {
+    if (!socket) return false;
+    
+    if (socket.readyState === 1) {
+      socket.send(JSON.stringify(message));
+      return true;
+    } else {
+      console.warn('Socket not ready, current state:', socket.readyState);
+      toast({
+        title: "Connection Issue",
+        description: "Please wait while we reconnect to the server",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   // Function to toggle ready status
   const toggleReady = () => {
-    if (!socket || !playerId) return;
+    if (!socket || !playerId || !game?.id) return;
     
-    socket.send(JSON.stringify({
+    safeSendMessage({
       action: 'TOGGLE_READY',
-      gameId: game?.id,
+      gameId: game.id,
       playerId: playerId
-    }));
+    });
   };
   
   // Function to start the game
   const startGame = () => {
     if (!socket || !game) return;
     
-    socket.send(JSON.stringify({
+    safeSendMessage({
       action: 'START_GAME',
       gameId: game.id,
       data: { hostId: user.id }
-    }));
+    });
   };
   
   // Function to leave the lobby

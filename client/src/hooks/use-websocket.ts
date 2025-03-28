@@ -38,6 +38,16 @@ export function useWebSocket() {
         console.log('WebSocket connection established successfully');
         setReconnecting(false);
         setReconnectAttempts(0);
+        
+        // Immediately send a connection acknowledgment message
+        try {
+          ws.send(JSON.stringify({
+            type: 'CONNECTION_ACK',
+            timestamp: new Date().toISOString()
+          }));
+        } catch (error) {
+          console.error('Failed to send connection acknowledgment:', error);
+        }
       });
       
       // Connection closed
@@ -55,7 +65,7 @@ export function useWebSocket() {
             if (newWs) {
               setSocket(newWs);
             }
-          }, RECONNECT_DELAY);
+          }, RECONNECT_DELAY * (reconnectAttempts + 1)); // Increasing delay with each attempt
         } else {
           console.log('Maximum reconnection attempts reached. Reloading page...');
           window.location.reload();
@@ -72,7 +82,24 @@ export function useWebSocket() {
       ws.addEventListener('message', (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('WebSocket message received:', { type: data.type, hasPayload: !!data.payload });
+          console.log('WebSocket message received:', { 
+            type: data.type, 
+            hasPayload: !!data.payload,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Handle server ping
+          if (data.type === 'PING') {
+            try {
+              ws.send(JSON.stringify({
+                type: 'PONG',
+                timestamp: new Date().toISOString()
+              }));
+              console.log('Responded to server ping with pong');
+            } catch (err) {
+              console.error('Failed to respond to ping:', err);
+            }
+          }
         } catch (e) {
           console.log('WebSocket message received (non-JSON):', event.data?.substring(0, 100));
         }
@@ -91,14 +118,31 @@ export function useWebSocket() {
       setSocket(ws);
     }
     
+    // Set up a ping timer to keep the connection alive
+    const pingInterval = setInterval(() => {
+      if (socket && socket.readyState === 1) {
+        try {
+          socket.send(JSON.stringify({ 
+            type: 'CLIENT_PING',
+            timestamp: new Date().toISOString() 
+          }));
+          console.log('Sent client ping to server');
+        } catch (err) {
+          console.error('Failed to send client ping:', err);
+        }
+      }
+    }, 30000); // Send a ping every 30 seconds
+    
     // Clean up the WebSocket connection when the component unmounts
     return () => {
+      clearInterval(pingInterval);
+      
       if (ws) {
         console.log('Closing WebSocket connection');
         ws.close();
       }
     };
-  }, [createWebSocket]);
+  }, [createWebSocket, socket]);
   
   return socket;
 }

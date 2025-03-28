@@ -1,0 +1,118 @@
+client:536 WebSocket connection to 'wss://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/?token=rksnQUhk1C7-' failed: 
+setupWebSocket @ client:536
+client:536 Uncaught (in promise) SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=rksnQUhk1C7-' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+chunk-WERSD76P.js?v=5b14f58d:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+App.tsx:33 Logging in with username: bagusjavas
+App.tsx:43 Login response status: 201
+App.tsx:61 User data from login: Object
+home-screen.tsx:34 User data when creating game: {id: 1, username: 'bagusjavas', createdAt: '2025-03-28T15:32:30.978Z'}
+home-screen.tsx:46 Create game response status: 201
+home-screen.tsx:61 Game created: {id: 1, code: 'KE5A5J', hostId: 1, status: 'waiting', currentPlayerId: null, …}
+use-websocket.ts:20 WebSocket Debug Info:
+use-websocket.ts:21 - Window Location: https://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/lobby/KE5A5J
+use-websocket.ts:22 - Protocol: wss:
+use-websocket.ts:23 - Hostname: 3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev
+use-websocket.ts:32 Attempting WebSocket connection to: wss://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/ws
+chunk-WERSD76P.js?v=5b14f58d:16670 Uncaught InvalidStateError: Failed to execute 'send' on 'WebSocket': Still in CONNECTING state.
+    at lobby-screen.tsx:78:12
+    at commitHookEffectListMount (chunk-WERSD76P.js?v=5b14f58d:16915:34)
+    at commitPassiveMountOnFiber (chunk-WERSD76P.js?v=5b14f58d:18156:19)
+    at commitPassiveMountEffects_complete (chunk-WERSD76P.js?v=5b14f58d:18129:17)
+    at commitPassiveMountEffects_begin (chunk-WERSD76P.js?v=5b14f58d:18119:15)
+    at commitPassiveMountEffects (chunk-WERSD76P.js?v=5b14f58d:18109:11)
+    at flushPassiveEffectsImpl (chunk-WERSD76P.js?v=5b14f58d:19490:11)
+    at flushPassiveEffects (chunk-WERSD76P.js?v=5b14f58d:19447:22)
+    at chunk-WERSD76P.js?v=5b14f58d:19328:17
+    at workLoop (chunk-WERSD76P.js?v=5b14f58d:197:42)
+(anonymous) @ lobby-screen.tsx:78
+commitHookEffectListMount @ chunk-WERSD76P.js?v=5b14f58d:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=5b14f58d:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=5b14f58d:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=5b14f58d:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=5b14f58d:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=5b14f58d:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=5b14f58d:19447
+(anonymous) @ chunk-WERSD76P.js?v=5b14f58d:19328
+workLoop @ chunk-WERSD76P.js?v=5b14f58d:197
+flushWork @ chunk-WERSD76P.js?v=5b14f58d:176
+performWorkUntilDeadline @ chunk-WERSD76P.js?v=5b14f58d:384
+chunk-WERSD76P.js?v=5b14f58d:14032 The above error occurred in the <LobbyScreen> component:
+
+    at LobbyScreen (https://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/src/components/lobby-screen.tsx:24:39)
+    at Route (https://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5b14f58d:323:16)
+    at Switch (https://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=5b14f58d:379:17)
+    at Router (https://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/src/App.tsx?v=Bgi57h-Aa9tk1kU79YggT:30:21)
+    at QueryClientProvider (https://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=5b14f58d:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-WERSD76P.js?v=5b14f58d:14032
+update.callback @ chunk-WERSD76P.js?v=5b14f58d:14052
+callCallback @ chunk-WERSD76P.js?v=5b14f58d:11248
+commitUpdateQueue @ chunk-WERSD76P.js?v=5b14f58d:11265
+commitLayoutEffectOnFiber @ chunk-WERSD76P.js?v=5b14f58d:17093
+commitLayoutMountEffects_complete @ chunk-WERSD76P.js?v=5b14f58d:17980
+commitLayoutEffects_begin @ chunk-WERSD76P.js?v=5b14f58d:17969
+commitLayoutEffects @ chunk-WERSD76P.js?v=5b14f58d:17920
+commitRootImpl @ chunk-WERSD76P.js?v=5b14f58d:19353
+commitRoot @ chunk-WERSD76P.js?v=5b14f58d:19277
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=5b14f58d:18895
+flushSyncCallbacks @ chunk-WERSD76P.js?v=5b14f58d:9119
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=5b14f58d:19506
+flushPassiveEffects @ chunk-WERSD76P.js?v=5b14f58d:19447
+(anonymous) @ chunk-WERSD76P.js?v=5b14f58d:19328
+workLoop @ chunk-WERSD76P.js?v=5b14f58d:197
+flushWork @ chunk-WERSD76P.js?v=5b14f58d:176
+performWorkUntilDeadline @ chunk-WERSD76P.js?v=5b14f58d:384
+chunk-WERSD76P.js?v=5b14f58d:9129 Uncaught InvalidStateError: Failed to execute 'send' on 'WebSocket': Still in CONNECTING state.
+    at lobby-screen.tsx:78:12
+    at commitHookEffectListMount (chunk-WERSD76P.js?v=5b14f58d:16915:34)
+    at commitPassiveMountOnFiber (chunk-WERSD76P.js?v=5b14f58d:18156:19)
+    at commitPassiveMountEffects_complete (chunk-WERSD76P.js?v=5b14f58d:18129:17)
+    at commitPassiveMountEffects_begin (chunk-WERSD76P.js?v=5b14f58d:18119:15)
+    at commitPassiveMountEffects (chunk-WERSD76P.js?v=5b14f58d:18109:11)
+    at flushPassiveEffectsImpl (chunk-WERSD76P.js?v=5b14f58d:19490:11)
+    at flushPassiveEffects (chunk-WERSD76P.js?v=5b14f58d:19447:22)
+    at chunk-WERSD76P.js?v=5b14f58d:19328:17
+    at workLoop (chunk-WERSD76P.js?v=5b14f58d:197:42)
+(anonymous) @ lobby-screen.tsx:78
+commitHookEffectListMount @ chunk-WERSD76P.js?v=5b14f58d:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=5b14f58d:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=5b14f58d:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=5b14f58d:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=5b14f58d:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=5b14f58d:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=5b14f58d:19447
+(anonymous) @ chunk-WERSD76P.js?v=5b14f58d:19328
+workLoop @ chunk-WERSD76P.js?v=5b14f58d:197
+flushWork @ chunk-WERSD76P.js?v=5b14f58d:176
+performWorkUntilDeadline @ chunk-WERSD76P.js?v=5b14f58d:384
+use-websocket.ts:97 Closing WebSocket connection
+use-websocket.ts:98 WebSocket connection to 'wss://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/ws' failed: WebSocket is closed before the connection is established.
+(anonymous) @ use-websocket.ts:98
+safelyCallDestroy @ chunk-WERSD76P.js?v=5b14f58d:16748
+commitHookEffectListUnmount @ chunk-WERSD76P.js?v=5b14f58d:16875
+commitPassiveUnmountInsideDeletedTreeOnFiber @ chunk-WERSD76P.js?v=5b14f58d:18283
+commitPassiveUnmountEffectsInsideOfDeletedTree_begin @ chunk-WERSD76P.js?v=5b14f58d:18245
+commitPassiveUnmountEffects_begin @ chunk-WERSD76P.js?v=5b14f58d:18181
+commitPassiveUnmountEffects @ chunk-WERSD76P.js?v=5b14f58d:18169
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=5b14f58d:19489
+flushPassiveEffects @ chunk-WERSD76P.js?v=5b14f58d:19447
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=5b14f58d:18868
+flushSyncCallbacks @ chunk-WERSD76P.js?v=5b14f58d:9119
+(anonymous) @ chunk-WERSD76P.js?v=5b14f58d:18627
+use-websocket.ts:67 WebSocket error: Event {isTrusted: true, type: 'error', target: WebSocket, currentTarget: WebSocket, eventPhase: 2, …}
+(anonymous) @ use-websocket.ts:67
+use-websocket.ts:45 WebSocket connection closed with code: 1006 reason: 
+use-websocket.ts:48 Attempting to reconnect (1/5)...
+use-websocket.ts:20 WebSocket Debug Info:
+use-websocket.ts:21 - Window Location: https://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/lobby/KE5A5J
+use-websocket.ts:22 - Protocol: wss:
+use-websocket.ts:23 - Hostname: 3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev
+use-websocket.ts:32 Attempting WebSocket connection to: wss://3c21bdf2-1be3-43c0-8102-64ab5e6b38c7-00-cwvzq05c4jiv.janeway.replit.dev/ws
+use-websocket.ts:38 WebSocket connection established successfully
+use-websocket.ts:75 WebSocket message received: {type: 'CONNECTED', hasPayload: true}

@@ -4,7 +4,9 @@ import { calculatePotentialScore } from '@/lib/game-utils';
 
 interface ScoreCardProps {
   currentDice: DiceRoll;
-  scoreCard: Record<ScoreCategory, number | undefined>;
+  scoreCard: Record<ScoreCategory, number | undefined> | {
+    [key in ScoreCategory]?: number;
+  };
   isMyTurn: boolean;
   onSelectCategory: (category: ScoreCategory) => void;
 }
