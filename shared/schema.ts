@@ -1,11 +1,11 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { pgTable, text, integer, serial, boolean, timestamp } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = sqliteTable('users', {
-  id: integer('id').primaryKey(),
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
   username: text('username').unique().notNull(),
-  createdAt: text('created_at').default('CURRENT_TIMESTAMP')
+  createdAt: timestamp('created_at').defaultNow()
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -13,15 +13,15 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true
 });
 
-export const games = sqliteTable('games', {
-  id: integer('id').primaryKey(),
+export const games = pgTable('games', {
+  id: serial('id').primaryKey(),
   code: text('code').unique().notNull(),
   hostId: integer('host_id').notNull(),
   status: text('status', { enum: ['waiting', 'in_progress', 'completed'] }).default('waiting'),
   currentPlayerId: integer('current_player_id'),
   currentRound: integer('current_round').default(1),
   maxRounds: integer('max_rounds').default(12),
-  createdAt: text('created_at').default('CURRENT_TIMESTAMP')
+  createdAt: timestamp('created_at').defaultNow()
 });
 
 export const insertGameSchema = createInsertSchema(games).omit({
@@ -32,15 +32,15 @@ export const insertGameSchema = createInsertSchema(games).omit({
   currentPlayerId: true
 });
 
-export const players = sqliteTable('players', {
-  id: integer('id').primaryKey(),
+export const players = pgTable('players', {
+  id: serial('id').primaryKey(),
   gameId: integer('game_id').notNull(),
   userId: integer('user_id').notNull(),
   score: integer('score').default(0),
   turnOrder: integer('turn_order').notNull(),
-  isReady: integer('is_ready', { mode: 'boolean' }).default(false),
-  disconnected: integer('disconnected', { mode: 'boolean' }).default(false),
-  createdAt: text('created_at').default('CURRENT_TIMESTAMP')
+  isReady: boolean('is_ready').default(false),
+  disconnected: boolean('disconnected').default(false),
+  createdAt: timestamp('created_at').defaultNow()
 });
 
 export const insertPlayerSchema = createInsertSchema(players).omit({
@@ -51,15 +51,15 @@ export const insertPlayerSchema = createInsertSchema(players).omit({
   createdAt: true
 });
 
-export const rounds = sqliteTable('rounds', {
-  id: integer('id').primaryKey(),
+export const rounds = pgTable('rounds', {
+  id: serial('id').primaryKey(),
   gameId: integer('game_id').notNull(),
   playerId: integer('player_id').notNull(),
   roundNumber: integer('round_number').notNull(),
   diceValues: text('dice_values').notNull(),
   category: text('category'),
   score: integer('score').default(0),
-  createdAt: text('created_at').default('CURRENT_TIMESTAMP')
+  createdAt: timestamp('created_at').defaultNow()
 });
 
 export const insertRoundSchema = createInsertSchema(rounds).omit({
@@ -68,8 +68,8 @@ export const insertRoundSchema = createInsertSchema(rounds).omit({
   createdAt: true
 });
 
-export const scoreCards = sqliteTable('score_cards', {
-  id: integer('id').primaryKey(),
+export const scoreCards = pgTable('score_cards', {
+  id: serial('id').primaryKey(),
   playerId: integer('player_id').notNull(),
   gameId: integer('game_id').notNull(),
   ones: integer('ones'),
@@ -85,7 +85,7 @@ export const scoreCards = sqliteTable('score_cards', {
   largeStraight: integer('large_straight'),
   yacht: integer('yacht'),
   chance: integer('chance'),
-  createdAt: text('created_at').default('CURRENT_TIMESTAMP')
+  createdAt: timestamp('created_at').defaultNow()
 });
 
 export const insertScoreCardSchema = createInsertSchema(scoreCards).omit({

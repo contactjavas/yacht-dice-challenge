@@ -2,6 +2,7 @@ import { DiceRoll, ScoreCategory, GameState, PlayerState } from "@shared/types";
 import { storage } from "./storage";
 import { User, Game, Player, ScoreCard } from "@shared/schema";
 import { DiceRoll as DiceRollerRoll } from '@dice-roller/rpg-dice-roller';
+import { WebSocket } from 'ws';
 
 // Number of rolls allowed per turn
 const MAX_ROLLS_PER_TURN = 3;
