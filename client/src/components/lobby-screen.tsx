@@ -73,16 +73,13 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
   // Setup WebSocket connection with more robust error handling
   useEffect(() => {
     // Don't try to use WebSocket until all required data is available
-    if (!game || !playerId) {
-      console.log('WebSocket setup: Missing game or playerId - waiting...');
+    if (!game || !playerId || !socket) {
+      console.log('WebSocket setup: Missing game, playerId, or socket - waiting...');
       return;
     }
 
-    // Handle the case where the socket isn't available yet
-    if (!socket) {
-      console.log('WebSocket setup: Socket not yet available - waiting for connection');
-      return;
-    }
+    // Track if we've already registered to prevent duplicate registrations
+    let hasRegistered = false;
 
     console.log(`WebSocket setup: Ready to connect for player ${playerId} (socket state: ${socket.readyState})`);
     
@@ -90,8 +87,12 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
     const registerPlayer = () => {
       try {
         // Double-check the socket is actually in the OPEN state before attempting to send
-        if (!socket || socket.readyState !== WebSocket.OPEN) {
-          console.warn(`Cannot register player - WebSocket not OPEN (current state: ${socket?.readyState})`);
+        if (!socket || socket.readyState !== WebSocket.OPEN || hasRegistered) {
+          if (hasRegistered) {
+            console.log('Player already registered, skipping registration');
+          } else {
+            console.warn(`Cannot register player - WebSocket not OPEN (current state: ${socket?.readyState})`);
+          }
           return;
         }
         
@@ -109,6 +110,7 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
           // Send the message
           socket.send(message);
           console.log('Successfully sent player registration message');
+          hasRegistered = true;
         } catch (error) {
           console.error('Failed to send player registration:', error);
         }
@@ -201,7 +203,7 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
     
     // Return a cleanup function to remove event listeners when component unmounts
     return removeListeners;
-  }, [socket, game, playerId, gameCode, navigate]);
+  }, [socket, game?.id, playerId, gameCode, navigate]);
   
   // Function to safely send WebSocket messages with retry
   const safeSendMessage = (message: any) => {
@@ -291,13 +293,15 @@ export default function LobbyScreen({ user, gameCode, onLogout }: LobbyScreenPro
   // Check if user is the host
   const isHost = game?.hostId === user.id;
   
-  // Check if game can be started (now allowing single-player mode)
+  // Check if game can be started (allowing single-player mode)
   const canStartGame = isHost && (
     // Either multiple players where everyone is ready
     ((game?.players.length || 0) >= 2 && 
      game?.players.every(player => player.isReady || player.userId === user.id)) ||
-    // OR single-player mode (just the host)
-    ((game?.players.length || 0) === 1 && game?.players[0]?.userId === user.id)
+    // OR single-player mode (just the host) who has marked themselves as ready
+    ((game?.players.length || 0) === 1 && 
+     game?.players[0]?.userId === user.id &&
+     game?.players[0]?.isReady)
   );
   
   // Check this player's ready status

@@ -1,4 +1,4 @@
-import { DiceRoll, ScoreCategory, GameState, PlayerState } from "@shared/types";
+import { DiceRoll, ScoreCategory, GameState, PlayerState, DiceValue } from "@shared/types";
 import { storage } from "./storage";
 import { User, Game, Player, ScoreCard } from "@shared/schema";
 import { DiceRoll as DiceRollerRoll } from '@dice-roller/rpg-dice-roller';
@@ -31,12 +31,12 @@ export class GameManager {
         id: player.id,
         userId: user.id,
         username: user.username,
-        score: player.score,
-        turnOrder: player.turnOrder,
-        isReady: player.isReady,
+        score: player.score || 0,
+        turnOrder: player.turnOrder || 1,
+        isReady: player.isReady || false,
         isHost: player.userId === game.hostId,
         isCurrentTurn: game.currentPlayerId === player.id,
-        disconnected: player.disconnected,
+        disconnected: player.disconnected || false,
         scoreCard: scoreCard ? this.formatScoreCard(scoreCard) : {}
       });
     }
@@ -45,10 +45,10 @@ export class GameManager {
       id: game.id,
       code: game.code,
       hostId: game.hostId,
-      status: game.status,
-      currentPlayerId: game.currentPlayerId,
-      currentRound: game.currentRound,
-      maxRounds: game.maxRounds,
+      status: game.status || 'waiting',
+      currentPlayerId: game.currentPlayerId || 0,
+      currentRound: game.currentRound || 1,
+      maxRounds: game.maxRounds || 12,
       players: playerStates,
       currentDice: [1, 1, 1, 1, 1],
       rollsLeft: MAX_ROLLS_PER_TURN,
@@ -68,19 +68,19 @@ export class GameManager {
   // Format score card for client display
   private formatScoreCard(scoreCard: ScoreCard): Record<ScoreCategory, number | undefined> {
     return {
-      [ScoreCategory.ONES]: scoreCard.ones,
-      [ScoreCategory.TWOS]: scoreCard.twos,
-      [ScoreCategory.THREES]: scoreCard.threes,
-      [ScoreCategory.FOURS]: scoreCard.fours,
-      [ScoreCategory.FIVES]: scoreCard.fives,
-      [ScoreCategory.SIXES]: scoreCard.sixes,
-      [ScoreCategory.THREE_OF_A_KIND]: scoreCard.threeOfAKind,
-      [ScoreCategory.FOUR_OF_A_KIND]: scoreCard.fourOfAKind,
-      [ScoreCategory.FULL_HOUSE]: scoreCard.fullHouse,
-      [ScoreCategory.SMALL_STRAIGHT]: scoreCard.smallStraight,
-      [ScoreCategory.LARGE_STRAIGHT]: scoreCard.largeStraight,
-      [ScoreCategory.YACHT]: scoreCard.yacht,
-      [ScoreCategory.CHANCE]: scoreCard.chance
+      [ScoreCategory.ONES]: scoreCard.ones || undefined,
+      [ScoreCategory.TWOS]: scoreCard.twos || undefined,
+      [ScoreCategory.THREES]: scoreCard.threes || undefined,
+      [ScoreCategory.FOURS]: scoreCard.fours || undefined,
+      [ScoreCategory.FIVES]: scoreCard.fives || undefined,
+      [ScoreCategory.SIXES]: scoreCard.sixes || undefined,
+      [ScoreCategory.THREE_OF_A_KIND]: scoreCard.threeOfAKind || undefined,
+      [ScoreCategory.FOUR_OF_A_KIND]: scoreCard.fourOfAKind || undefined,
+      [ScoreCategory.FULL_HOUSE]: scoreCard.fullHouse || undefined,
+      [ScoreCategory.SMALL_STRAIGHT]: scoreCard.smallStraight || undefined,
+      [ScoreCategory.LARGE_STRAIGHT]: scoreCard.largeStraight || undefined,
+      [ScoreCategory.YACHT]: scoreCard.yacht || undefined,
+      [ScoreCategory.CHANCE]: scoreCard.chance || undefined
     };
   }
 
@@ -183,16 +183,24 @@ export class GameManager {
   // Start a game (now supports single-player)
   async startGame(gameId: number, hostId: number): Promise<GameState | undefined> {
     try {
+      console.log(`Starting game ${gameId} requested by host ${hostId}`);
       const game = await storage.getGame(gameId);
-      if (!game) return undefined;
+      if (!game) {
+        console.error('Game not found:', gameId);
+        return undefined;
+      }
       
       // Verify it's the host
-      if (game.hostId !== hostId) return undefined;
+      if (game.hostId !== hostId) {
+        console.error('Only the host can start the game');
+        return undefined;
+      }
       
       // Get players for this game
       const players = await storage.getPlayersByGameId(game.id);
+      console.log(`Found ${players.length} players for game ${gameId}`);
       
-      // Allow single-player mode (for testing/practice)
+      // Require at least one player (the host)
       if (players.length === 0) {
         console.error('No players found for game', gameId);
         return undefined;
@@ -203,23 +211,32 @@ export class GameManager {
       
       // Set first player as the current player
       const firstPlayer = players[0];
+      console.log(`Setting first player: ${firstPlayer.id} (user ${firstPlayer.userId})`);
       
       // Log single player mode if detected
       if (players.length === 1) {
         console.log('Starting game in SINGLE PLAYER MODE for testing/practice');
       }
       
+      console.log(`Updating game ${gameId} status to 'in_progress'`);
       const updatedGame = await storage.updateGame(game.id, {
         status: 'in_progress',
         currentPlayerId: firstPlayer.id
       });
       
-      if (!updatedGame) return undefined;
+      if (!updatedGame) {
+        console.error('Failed to update game status');
+        return undefined;
+      }
       
+      console.log(`Game ${gameId} started successfully`);
       const gameState = await this.initializeGameState(updatedGame);
       
       // Start turn timer
       this.startTurnTimer(gameId);
+      
+      // Broadcast the game update to all connected players
+      this.broadcastGameUpdate(gameId);
       
       return gameState;
     } catch (error) {
@@ -238,37 +255,88 @@ export class GameManager {
       if (gameState.currentPlayerId !== playerId || gameState.rollsLeft <= 0) return undefined;
       
       // Generate new dice values using dice-roller
-      const diceRoller = new DiceRollerRoll('5d6');
-      const newDiceValues: DiceRoll = diceRoller.rolls[0].rolls.map(r => r.value as any);
-      
-      // Apply selected dice (keep the selected ones, roll the others)
-      const currentDice = [...gameState.currentDice];
-      for (let i = 0; i < 5; i++) {
-        if (!selectedIndices[i]) {
-          currentDice[i] = newDiceValues[i];
+      try {
+        const diceRoller = new DiceRollerRoll('5d6');
+        
+        // Type assertion to access the rolls property safely
+        const diceRollerAny = diceRoller as any;
+        if (!diceRollerAny.rolls || !Array.isArray(diceRollerAny.rolls) || diceRollerAny.rolls.length === 0) {
+          console.error('Invalid dice roller structure:', diceRoller);
+          throw new Error('Failed to generate valid dice roll');
         }
+        
+        const rollResults = diceRollerAny.rolls[0];
+        if (!rollResults || !Array.isArray(rollResults.rolls)) {
+          console.error('Invalid dice roll results structure:', rollResults);
+          throw new Error('Failed to generate valid dice roll');
+        }
+        
+        // Extract the dice values with proper type checking
+        const newDiceValues: DiceValue[] = [];
+        for (let i = 0; i < 5; i++) {
+          const roll = rollResults.rolls[i];
+          if (roll && typeof roll.value === 'number') {
+            // Ensure the value is a valid DiceValue (1-6)
+            const value = roll.value;
+            if (value >= 1 && value <= 6) {
+              newDiceValues.push(value as DiceValue);
+            } else {
+              // Fallback to a random valid DiceValue if out of range
+              newDiceValues.push((Math.floor(Math.random() * 6) + 1) as DiceValue);
+            }
+          } else {
+            // Fallback to a random valid DiceValue if the roll is invalid
+            newDiceValues.push((Math.floor(Math.random() * 6) + 1) as DiceValue);
+          }
+        }
+        
+        // Apply selected dice (keep the selected ones, roll the others)
+        const currentDice = [...gameState.currentDice];
+        for (let i = 0; i < 5; i++) {
+          if (!selectedIndices[i]) {
+            currentDice[i] = newDiceValues[i];
+          }
+        }
+        
+        // Update game state
+        gameState.currentDice = currentDice;
+        gameState.rollsLeft--;
+        gameState.selectedDice = [false, false, false, false, false];
+        
+        // Update the game in our map
+        this.games.set(gameId, gameState);
+        
+        // Reset turn timer
+        this.resetTurnTimer(gameId);
+        
+        return gameState;
+      } catch (error) {
+        console.error('Error rolling dice:', error);
+        
+        // Fallback to simple random dice if the dice-roller fails
+        const currentDice = [...gameState.currentDice];
+        for (let i = 0; i < 5; i++) {
+          if (!selectedIndices[i]) {
+            // Ensure we use a valid DiceValue
+            currentDice[i] = (Math.floor(Math.random() * 6) + 1) as DiceValue;
+          }
+        }
+        
+        // Update game state
+        gameState.currentDice = currentDice;
+        gameState.rollsLeft--;
+        gameState.selectedDice = [false, false, false, false, false];
+        
+        // Update the game in our map
+        this.games.set(gameId, gameState);
+        
+        // Reset turn timer
+        this.resetTurnTimer(gameId);
+        
+        return gameState;
       }
-      
-      // Update game state
-      gameState.currentDice = currentDice;
-      gameState.rollsLeft--;
-      gameState.selectedDice = [false, false, false, false, false];
-      
-      // Reset turn timer
-      this.resetTurnTimer(gameId);
-      
-      // Save roll to rounds table
-      await storage.createRound({
-        gameId,
-        playerId,
-        roundNumber: gameState.currentRound,
-        diceValues: JSON.stringify(currentDice)
-      });
-      
-      this.games.set(gameId, gameState);
-      return gameState;
     } catch (error) {
-      console.error('Error rolling dice:', error);
+      console.error('Error in rollDice method:', error);
       return undefined;
     }
   }
@@ -467,33 +535,56 @@ export class GameManager {
   
   // Check if the game is complete
   private async checkGameCompletion(gameId: number): Promise<boolean> {
-    const game = await storage.getGame(gameId);
-    if (!game) return false;
-    
-    // If we've reached the max number of rounds
-    if (game.currentRound >= game.maxRounds) {
-      const players = await storage.getPlayersByGameId(gameId);
+    try {
+      const game = await storage.getGame(gameId);
+      if (!game) return false;
       
-      // Check if all players have filled their scorecards
+      // Check if all categories are filled for all players
+      const players = await storage.getPlayersByGameId(game.id);
+      if (players.length === 0) return false;
+      
+      // Check if we've reached the max rounds
+      const currentRound = game.currentRound || 1;
+      const maxRounds = game.maxRounds || 12;
+      
+      if (currentRound > maxRounds) {
+        return true;
+      }
+      
+      // Check if all players have filled all categories
       for (const player of players) {
         const scoreCard = await storage.getScoreCardByPlayerId(player.id);
         if (!scoreCard) continue;
         
-        // Count filled categories
-        const filledCategories = Object.values(ScoreCategory).filter(
-          category => scoreCard[category as keyof typeof scoreCard] !== null
-        );
+        // Check if all categories are filled
+        const categories = [
+          scoreCard.ones !== null && scoreCard.ones !== undefined,
+          scoreCard.twos !== null && scoreCard.twos !== undefined,
+          scoreCard.threes !== null && scoreCard.threes !== undefined,
+          scoreCard.fours !== null && scoreCard.fours !== undefined,
+          scoreCard.fives !== null && scoreCard.fives !== undefined,
+          scoreCard.sixes !== null && scoreCard.sixes !== undefined,
+          scoreCard.threeOfAKind !== null && scoreCard.threeOfAKind !== undefined,
+          scoreCard.fourOfAKind !== null && scoreCard.fourOfAKind !== undefined,
+          scoreCard.fullHouse !== null && scoreCard.fullHouse !== undefined,
+          scoreCard.smallStraight !== null && scoreCard.smallStraight !== undefined,
+          scoreCard.largeStraight !== null && scoreCard.largeStraight !== undefined,
+          scoreCard.yacht !== null && scoreCard.yacht !== undefined,
+          scoreCard.chance !== null && scoreCard.chance !== undefined
+        ];
         
-        // If any player hasn't filled all categories, game isn't complete
-        if (filledCategories.length < Object.values(ScoreCategory).length) {
+        // If any category is not filled, game is not complete
+        if (categories.some(c => !c)) {
           return false;
         }
       }
       
+      // If we got here, all players have filled all categories
       return true;
+    } catch (error) {
+      console.error('Error checking game completion:', error);
+      return false;
     }
-    
-    return false;
   }
   
   // Start a turn timer
@@ -723,7 +814,7 @@ export class GameManager {
           await this.passTurn(game.id, playerId);
         }
         
-        // Refresh and broadcast game state
+        // Refresh game state
         await this.initializeGameState(game);
         this.broadcastGameUpdate(game.id);
       }
@@ -734,24 +825,31 @@ export class GameManager {
   
   // Broadcast game state to all connected players
   broadcastGameUpdate(gameId: number): void {
-    const gameState = this.games.get(gameId);
-    if (!gameState) return;
-    
-    // For each player, send the game update
-    for (const player of gameState.players) {
-      const connections = this.playerConnections.get(player.id);
-      if (!connections) continue;
+    try {
+      const gameState = this.games.get(gameId);
+      if (!gameState) return;
       
-      const message = JSON.stringify({
-        type: 'GAME_UPDATE',
-        payload: gameState
-      });
-      
-      for (const socket of connections) {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(message);
-        }
+      // For each player in the game
+      for (const player of gameState.players) {
+        const connections = this.playerConnections.get(player.userId);
+        if (!connections) continue;
+        
+        // Convert Set to Array before iterating to avoid TypeScript error
+        Array.from(connections).forEach(socket => {
+          if (socket.readyState === WebSocket.OPEN) {
+            try {
+              socket.send(JSON.stringify({
+                type: 'GAME_UPDATE',
+                payload: gameState
+              }));
+            } catch (error) {
+              console.error(`Error sending game update to player ${player.id}:`, error);
+            }
+          }
+        });
       }
+    } catch (error) {
+      console.error('Error broadcasting game update:', error);
     }
   }
 }

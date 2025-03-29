@@ -14,8 +14,19 @@ export function useWebSocket() {
     // Simple function to create WebSocket with basic error handling
     const createWebSocket = () => {
       try {
-        // Always use domain without port for Replit environment
-        const wsUrl = `wss://${window.location.hostname}/ws`;
+        // Determine if we're in a local development environment or Replit
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        // Use appropriate WebSocket URL based on environment
+        let wsUrl;
+        if (isLocalDev) {
+          // For local development, use ws:// protocol with the same port
+          wsUrl = `ws://${window.location.hostname}:${window.location.port}/ws`;
+        } else {
+          // For Replit or production, use wss:// protocol without port
+          wsUrl = `wss://${window.location.hostname}/ws`;
+        }
+        
         console.log(`Creating WebSocket connection to: ${wsUrl}`);
         
         // Create the WebSocket

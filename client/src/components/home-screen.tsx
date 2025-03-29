@@ -116,7 +116,7 @@ export default function HomeScreen({ user, onLogin, onLogout }: HomeScreenProps)
             <span className="text-[#F59E0B]">YACHT</span> 
             <span className="text-xs bg-primary/80 px-2 py-1 rounded-md align-top">DICE</span>
           </h1>
-          <p className="text-neutral-300 mb-8">Multiplayer Dice Game</p>
+          <p className="text-neutral-700 mb-8">Multiplayer Dice Game</p>
           
           <div className="space-y-4">
             <Button 
@@ -127,10 +127,10 @@ export default function HomeScreen({ user, onLogin, onLogout }: HomeScreenProps)
             </Button>
             
             <div className="relative">
-              <span className="absolute inset-x-0 flex items-center justify-center -top-3">
+              <Separator className="my-6 bg-neutral-600" />
+              <span className="absolute inset-x-0 flex items-center justify-center -top-3 z-30">
                 <span className="px-4 bg-neutral-dark text-neutral-400 text-sm">or</span>
               </span>
-              <Separator className="my-6 bg-neutral-600" />
             </div>
             
             <form onSubmit={handleJoinGame} className="space-y-4">
