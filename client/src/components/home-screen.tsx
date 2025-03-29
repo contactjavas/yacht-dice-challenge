@@ -138,12 +138,10 @@ export default function HomeScreen({
 							<i className="fas fa-plus-circle"></i> Create Game
 						</Button>
 
-						<div className="relative">
-							<Separator className="my-6 bg-neutral-600" />
-							<span className="absolute inset-x-0 -top-3 z-30 flex items-center justify-center">
-								<span className="bg-neutral-dark px-4 text-sm text-neutral-400">
-									or
-								</span>
+						<div className="relative flex items-center justify-center my-8">
+							<Separator className="absolute w-full bg-neutral-600" />
+							<span className="relative z-10 bg-neutral-800 px-4 py-1 text-sm text-neutral-400 rounded-full border border-neutral-600">
+								or
 							</span>
 						</div>
 

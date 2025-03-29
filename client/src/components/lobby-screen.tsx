@@ -136,6 +136,7 @@ export default function LobbyScreen({
 				let data;
 				try {
 					data = JSON.parse(event.data);
+					console.log("WebSocket message received:", data);
 				} catch (parseError) {
 					console.error("Failed to parse WebSocket message:", parseError);
 					return;
@@ -143,11 +144,15 @@ export default function LobbyScreen({
 
 				// Process GAME_UPDATE messages
 				if (data && data.type === "GAME_UPDATE" && data.payload) {
+					console.log("Game update received:", data.payload);
 					setGame(data.payload);
 
 					// Navigate to game screen if game has started
 					if (data.payload.status === "in_progress") {
+						console.log("Game status is in_progress, navigating to game screen");
 						navigate(`/game/${gameCode}`);
+					} else {
+						console.log("Game status is:", data.payload.status);
 					}
 				}
 			} catch (error) {
@@ -319,10 +324,9 @@ export default function LobbyScreen({
 			game?.players.every(
 				(player) => player.isReady || player.userId === user.id,
 			)) ||
-			// OR single-player mode (just the host) who has marked themselves as ready
+			// OR single-player mode (just the host)
 			((game?.players.length || 0) === 1 &&
-				game?.players[0]?.userId === user.id &&
-				game?.players[0]?.isReady));
+				game?.players[0]?.userId === user.id));
 
 	// Check this player's ready status
 	const isReady =
