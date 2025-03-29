@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+	* {
+		@apply border-border;
+	}
 
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
-  }
+	body {
+		@apply bg-background font-sans text-foreground antialiased;
+	}
 }
