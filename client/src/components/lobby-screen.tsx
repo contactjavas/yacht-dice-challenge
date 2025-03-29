@@ -24,6 +24,10 @@ export default function LobbyScreen({
 	const [game, setGame] = useState<GameState | null>(null);
 	const [playerId, setPlayerId] = useState<number | null>(null);
 	const [copied, setCopied] = useState(false);
+	const [cleanupData, setCleanupData] = useState<{
+		timeoutId: number;
+		listener: (event: MessageEvent) => void;
+	} | null>(null);
 
 	const socket = useWebSocket();
 
@@ -291,12 +295,110 @@ export default function LobbyScreen({
 	const startGame = () => {
 		if (!socket || !game) return;
 
-		safeSendMessage({
+		// Set loading state to provide user feedback
+		setLoading(true);
+
+		// Track if we've navigated to prevent double navigation
+		let hasNavigated = false;
+
+		// Create a dedicated one-time listener for game start updates
+		const gameStartListener = (event: MessageEvent) => {
+			try {
+				const data = JSON.parse(event.data);
+				console.log("Game start listener received:", data);
+
+				if (
+					data?.type === "GAME_UPDATE" &&
+					data?.payload?.status === "in_progress"
+				) {
+					if (!hasNavigated) {
+						console.log("Game started successfully, navigating to game screen");
+						hasNavigated = true;
+						setLoading(false);
+						// Clean up the listener before navigation
+						socket.removeEventListener("message", gameStartListener);
+						navigate(`/game/${gameCode}`);
+					}
+				}
+			} catch (error) {
+				console.error("Error in game start listener:", error);
+				setLoading(false);
+				// Remove listener on error to prevent memory leaks
+				socket.removeEventListener("message", gameStartListener);
+			}
+		};
+
+		// Add the temporary listener
+		socket.addEventListener("message", gameStartListener);
+
+		// Send the start game message
+		const success = safeSendMessage({
 			action: "START_GAME",
 			gameId: game.id,
 			data: { hostId: user.id },
 		});
+
+		if (!success) {
+			console.error("Failed to send START_GAME message");
+			setLoading(false);
+			toast({
+				title: "Connection Error",
+				description: "Failed to start game. Please try again.",
+				variant: "destructive",
+			});
+			// Remove the listener if sending failed
+			socket.removeEventListener("message", gameStartListener);
+			return;
+		}
+
+		// Fallback: If no response after 3 seconds, try direct navigation
+		const timeoutId = window.setTimeout(() => {
+			if (!hasNavigated) {
+				console.log(
+					"No game start confirmation received, using fallback navigation",
+				);
+				hasNavigated = true;
+				setLoading(false);
+				// Clean up the listener before navigation
+				socket.removeEventListener("message", gameStartListener);
+				navigate(`/game/${gameCode}`);
+			}
+		}, 3000);
+
+		// Store the timeout ID and listener reference in a ref so they can be cleaned up
+		// if the component unmounts
+		const cleanupRef = { timeoutId, listener: gameStartListener };
+		setCleanupData(cleanupRef);
 	};
+
+	useEffect(() => {
+		if (cleanupData) {
+			const { timeoutId, listener } = cleanupData;
+			return () => {
+				clearTimeout(timeoutId);
+				socket?.removeEventListener("message", listener);
+			};
+		}
+	}, [cleanupData, socket]);
+
+	// Effect to auto-ready the host in single-player mode
+	useEffect(() => {
+		// Only proceed if we have game data and player ID
+		if (!game || !playerId || !socket) return;
+		
+		// Check if this is single-player mode (host is the only player)
+		const isSinglePlayerMode = game.players.length === 1 && game.hostId === user.id;
+		
+		// If single-player mode and host is not ready, mark as ready automatically
+		if (isSinglePlayerMode && !game.players[0].isReady) {
+			console.log("Auto-marking host as ready in single-player mode");
+			safeSendMessage({
+				action: "TOGGLE_READY",
+				gameId: game.id,
+				playerId: playerId,
+			});
+		}
+	}, [game, playerId, socket, user.id]);
 
 	// Function to leave the lobby
 	const leaveLobby = () => {
