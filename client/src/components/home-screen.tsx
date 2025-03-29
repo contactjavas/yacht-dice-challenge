@@ -133,14 +133,17 @@ export default function HomeScreen({
 					<div className="space-y-4">
 						<Button
 							className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-6 font-medium transition-all hover:bg-primary/80"
-							onClick={handleCreateGame}
+							onClick={
+								!user ? () => setIsLoginDialogOpen(true) : handleCreateGame
+							}
 						>
-							<i className="fas fa-plus-circle"></i> Create Game
+							<i className="fas fa-plus-circle"></i>{" "}
+							{!user ? "Create User" : "Create Game"}
 						</Button>
 
-						<div className="relative flex items-center justify-center my-8">
+						<div className="relative flex w-full items-center justify-center">
 							<Separator className="absolute w-full bg-neutral-600" />
-							<span className="relative z-10 bg-neutral-800 px-4 py-1 text-sm text-neutral-400 rounded-full border border-neutral-600">
+							<span className="relative flex h-6 items-center justify-center rounded-full border border-neutral-600 bg-neutral-800 px-4 text-sm text-neutral-400">
 								or
 							</span>
 						</div>

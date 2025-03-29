@@ -149,7 +149,9 @@ export default function LobbyScreen({
 
 					// Navigate to game screen if game has started
 					if (data.payload.status === "in_progress") {
-						console.log("Game status is in_progress, navigating to game screen");
+						console.log(
+							"Game status is in_progress, navigating to game screen",
+						);
 						navigate(`/game/${gameCode}`);
 					} else {
 						console.log("Game status is:", data.payload.status);
