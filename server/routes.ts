@@ -43,12 +43,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 			const result = insertUserSchema.safeParse(req.body);
 
 			if (!result.success) {
-				return res
-					.status(400)
-					.json({
-						message: "Invalid user data",
-						errors: result.error.format(),
-					});
+				return res.status(400).json({
+					message: "Invalid user data",
+					errors: result.error.format(),
+				});
 			}
 
 			const { username } = result.data;
@@ -80,12 +78,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 			if (!result.success) {
 				console.log("Invalid game data:", result.error.format());
-				return res
-					.status(400)
-					.json({
-						message: "Invalid game data",
-						errors: result.error.format(),
-					});
+				return res.status(400).json({
+					message: "Invalid game data",
+					errors: result.error.format(),
+				});
 			}
 
 			const { hostId } = result.data;
@@ -124,12 +120,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 			const result = schema.safeParse(req.body);
 
 			if (!result.success) {
-				return res
-					.status(400)
-					.json({
-						message: "Invalid join data",
-						errors: result.error.format(),
-					});
+				return res.status(400).json({
+					message: "Invalid join data",
+					errors: result.error.format(),
+				});
 			}
 
 			const { userId } = result.data;
@@ -141,6 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 			}
 
 			const gameState = await gameManager.joinGame(code, userId);
+
 			if (!gameState) {
 				return res
 					.status(404)
@@ -508,7 +503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 			);
 			if (playerId) {
 				console.log(
-					`WS [${connectionId}] unregistering player ${playerId} connection`,
+					`WS [${connectionId}] unregistering player ${playerId} on game ${gameId} connection`,
 				);
 				// Unregister connection
 				gameManager.unregisterPlayerConnection(playerId, ws);

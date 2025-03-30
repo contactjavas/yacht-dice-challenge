@@ -60,6 +60,7 @@ export default function LobbyScreen({
 
 				// Find this player's ID in the game
 				const player = gameData.players.find((p: any) => p.userId === user.id);
+
 				if (player) {
 					setPlayerId(player.id);
 				}
@@ -83,34 +84,43 @@ export default function LobbyScreen({
 		// Don't try to use WebSocket until all required data is available
 		if (!game || !playerId || !socket) {
 			console.log(
-				"WebSocket setup: Missing game, playerId, or socket - waiting...",
+				"LobbyScreen: WebSocket setup: Missing game, playerId, or socket - waiting...",
+				{ game, playerId, socket },
 			);
 			return;
 		}
 
 		// Track if we've already registered to prevent duplicate registrations
-		let hasRegistered = false;
+		let playerRegistered = false;
 
 		console.log(
-			`WebSocket setup: Ready to connect for player ${playerId} (socket state: ${socket.readyState})`,
+			`LobbyScreen: WebSocket setup: Ready to connect for player ${playerId} (socket state: ${socket.readyState})`,
 		);
 
 		// Safe function to register the player with appropriate error handling
 		const registerPlayer = () => {
 			try {
 				// Double-check the socket is actually in the OPEN state before attempting to send
-				if (!socket || socket.readyState !== WebSocket.OPEN || hasRegistered) {
-					if (hasRegistered) {
-						console.log("Player already registered, skipping registration");
+				if (
+					!socket ||
+					socket.readyState !== WebSocket.OPEN ||
+					playerRegistered
+				) {
+					if (playerRegistered) {
+						console.log(
+							"LobbyScreen: Player already registered, skipping registration",
+						);
 					} else {
 						console.warn(
-							`Cannot register player - WebSocket not OPEN (current state: ${socket?.readyState})`,
+							`LobbyScreen: Cannot register player - WebSocket not OPEN (current state: ${socket?.readyState})`,
 						);
 					}
 					return;
 				}
 
-				console.log(`Registering player ${playerId} for game ${game.id}`);
+				console.log(
+					`LobbyScreen: Registering player ${playerId} for game ${game.id}`,
+				);
 
 				// Send player registration with error handling
 				try {
@@ -123,13 +133,21 @@ export default function LobbyScreen({
 
 					// Send the message
 					socket.send(message);
-					console.log("Successfully sent player registration message");
-					hasRegistered = true;
+					console.log(
+						"LobbyScreen: Successfully sent player registration message",
+					);
+					playerRegistered = true;
 				} catch (error) {
-					console.error("Failed to send player registration:", error);
+					console.error(
+						"LobbyScreen: Failed to send player registration:",
+						error,
+					);
 				}
 			} catch (error) {
-				console.error("Error during player registration process:", error);
+				console.error(
+					"LobbyScreen: Error during player registration process:",
+					error,
+				);
 			}
 		};
 
@@ -140,7 +158,7 @@ export default function LobbyScreen({
 				let data;
 				try {
 					data = JSON.parse(event.data);
-					console.log("WebSocket message received:", data);
+					console.log("LobbyScreen: WebSocket message received:", data);
 				} catch (parseError) {
 					console.error("Failed to parse WebSocket message:", parseError);
 					return;
@@ -148,21 +166,21 @@ export default function LobbyScreen({
 
 				// Process GAME_UPDATE messages
 				if (data && data.type === "GAME_UPDATE" && data.payload) {
-					console.log("Game update received:", data.payload);
+					console.log("LobbyScreen: Game update received:", data.payload);
 					setGame(data.payload);
 
 					// Navigate to game screen if game has started
 					if (data.payload.status === "in_progress") {
 						console.log(
-							"Game status is in_progress, navigating to game screen",
+							"LobbyScreen: Game status is in_progress, navigating to game screen",
 						);
 						navigate(`/game/${gameCode}`);
 					} else {
-						console.log("Game status is:", data.payload.status);
+						console.log("LobbyScreen: Game status is:", data.payload.status);
 					}
 				}
 			} catch (error) {
-				console.error("Error handling WebSocket message:", error);
+				console.error("LobbyScreen: Error handling WebSocket message:", error);
 			}
 		};
 
@@ -174,7 +192,10 @@ export default function LobbyScreen({
 					socket.removeEventListener("message", handleSocketMessage);
 				}
 			} catch (error) {
-				console.error("Error cleaning up WebSocket event listeners:", error);
+				console.error(
+					"LobbyScreen: Error cleaning up WebSocket event listeners:",
+					error,
+				);
 			}
 		};
 
@@ -185,21 +206,26 @@ export default function LobbyScreen({
 		try {
 			socket.addEventListener("message", handleSocketMessage);
 		} catch (error) {
-			console.error("Error adding WebSocket message listener:", error);
+			console.error(
+				"LobbyScreen: Error adding WebSocket message listener:",
+				error,
+			);
 		}
 
 		// Register the player based on socket state
 		if (socket.readyState === WebSocket.OPEN) {
 			// Socket is already open, so register immediately
-			console.log("Socket is OPEN, registering player immediately");
+			console.log(
+				"LobbyScreen: Socket is OPEN, registering player immediately",
+			);
 			registerPlayer();
 		} else if (socket.readyState === WebSocket.CONNECTING) {
 			// Socket is connecting, so we need to wait for it to open
-			console.log("Socket is CONNECTING, waiting for open event");
+			console.log("LobbyScreen: Socket is CONNECTING, waiting for open event");
 
 			// Define the open handler function
 			const handleOpen = () => {
-				console.log("WebSocket opened, now registering player");
+				console.log("LobbyScreen: WebSocket opened, now registering player");
 				// Small delay to ensure full connection establishment
 				setTimeout(registerPlayer, 100);
 			};
@@ -215,11 +241,16 @@ export default function LobbyScreen({
 					socket.removeEventListener("open", handleOpen);
 				};
 			} catch (error) {
-				console.error("Error adding WebSocket open listener:", error);
+				console.error(
+					"LobbyScreen: Error adding WebSocket open listener:",
+					error,
+				);
 			}
 		} else {
 			// Socket is in CLOSING or CLOSED state, this is not expected
-			console.warn(`Socket is in unexpected state: ${socket.readyState}`);
+			console.warn(
+				`LobbyScreen: Socket is in unexpected state: ${socket.readyState}`,
+			);
 		}
 
 		// Return a cleanup function to remove event listeners when component unmounts
@@ -227,7 +258,7 @@ export default function LobbyScreen({
 	}, [socket, game?.id, playerId, gameCode, navigate]);
 
 	// Function to safely send WebSocket messages with retry
-	const safeSendMessage = (message: any) => {
+	const safeSendSocketMessage = (message: any) => {
 		if (!socket) {
 			console.warn("LobbyScreen: No WebSocket connection available");
 			toast({
@@ -284,7 +315,7 @@ export default function LobbyScreen({
 	const toggleReady = () => {
 		if (!socket || !playerId || !game?.id) return;
 
-		safeSendMessage({
+		safeSendSocketMessage({
 			action: "TOGGLE_READY",
 			gameId: game.id,
 			playerId: playerId,
@@ -305,14 +336,16 @@ export default function LobbyScreen({
 		const gameStartListener = (event: MessageEvent) => {
 			try {
 				const data = JSON.parse(event.data);
-				console.log("Game start listener received:", data);
+				console.log("LobbyScreen: Game start listener received:", data);
 
 				if (
 					data?.type === "GAME_UPDATE" &&
 					data?.payload?.status === "in_progress"
 				) {
 					if (!hasNavigated) {
-						console.log("Game started successfully, navigating to game screen");
+						console.log(
+							"LobbyScreen: Game started successfully, navigating to game screen",
+						);
 						hasNavigated = true;
 						setLoading(false);
 						// Clean up the listener before navigation
@@ -332,9 +365,10 @@ export default function LobbyScreen({
 		socket.addEventListener("message", gameStartListener);
 
 		// Send the start game message
-		const success = safeSendMessage({
+		const success = safeSendSocketMessage({
 			action: "START_GAME",
 			gameId: game.id,
+			playerId: user.id,
 			data: { hostId: user.id },
 		});
 
@@ -355,7 +389,7 @@ export default function LobbyScreen({
 		const timeoutId = window.setTimeout(() => {
 			if (!hasNavigated) {
 				console.log(
-					"No game start confirmation received, using fallback navigation",
+					"LobbyScreen: No game start confirmation received, using fallback navigation",
 				);
 				hasNavigated = true;
 				setLoading(false);
@@ -385,14 +419,17 @@ export default function LobbyScreen({
 	useEffect(() => {
 		// Only proceed if we have game data and player ID
 		if (!game || !playerId || !socket) return;
-		
+
 		// Check if this is single-player mode (host is the only player)
-		const isSinglePlayerMode = game.players.length === 1 && game.hostId === user.id;
-		
+		const isSinglePlayerMode =
+			game.players.length === 1 && game.hostId === user.id;
+
 		// If single-player mode and host is not ready, mark as ready automatically
 		if (isSinglePlayerMode && !game.players[0].isReady) {
-			console.log("Auto-marking host as ready in single-player mode");
-			safeSendMessage({
+			console.log(
+				"LobbyScreen: Auto-marking host as ready in single-player mode",
+			);
+			safeSendSocketMessage({
 				action: "TOGGLE_READY",
 				gameId: game.id,
 				playerId: playerId,

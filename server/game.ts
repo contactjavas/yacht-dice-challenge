@@ -47,6 +47,8 @@ export class GameManager {
 			});
 		}
 
+		console.log("GameManager.initializeGameState - players:", players);
+
 		const gameState: GameState = {
 			id: game.id,
 			code: game.code,
@@ -150,18 +152,30 @@ export class GameManager {
 		gameCode: string,
 		userId: number,
 	): Promise<GameState | undefined> {
+		console.log("GameManager.joinGame - parameters:", { gameCode, userId });
+
 		try {
 			const game = await storage.getGameByCode(gameCode);
-			if (!game) return undefined;
+
+			if (!game) {
+				console.error("GameManager.joinGame - error: game not found");
+				return undefined;
+			}
 
 			// Check if game is joinable
-			if (game.status !== "waiting") return undefined;
+			if (game.status !== "waiting" && game.status !== "in_progress") {
+				console.error(
+					`GameManager.joinGame - error: game not joinable because the game is not in "waiting" status. Currently the game status is: "${game.status}"`,
+				);
+				return undefined;
+			}
 
 			// Check if player already in the game
 			const existingPlayer = await storage.getPlayerByGameAndUser(
 				game.id,
 				userId,
 			);
+
 			if (existingPlayer) {
 				// Update player as connected
 				await storage.updatePlayer(existingPlayer.id, { disconnected: false });
@@ -228,6 +242,7 @@ export class GameManager {
 
 			// Set first player as the current player
 			const firstPlayer = players[0];
+
 			console.log(
 				`Setting first player: ${firstPlayer.id} (user ${firstPlayer.userId})`,
 			);
@@ -238,6 +253,7 @@ export class GameManager {
 			}
 
 			console.log(`Updating game ${gameId} status to 'in_progress'`);
+
 			const updatedGame = await storage.updateGame(game.id, {
 				status: "in_progress",
 				currentPlayerId: firstPlayer.id,

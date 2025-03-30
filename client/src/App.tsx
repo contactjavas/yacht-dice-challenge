@@ -111,8 +111,14 @@ function Router() {
 				}
 			</Route>
 			<Route path="/game/:code">
-				{(params) =>
-					user ? (
+				{(params) => {
+					console.log({
+						screen: "GameScreen",
+						code: params.code,
+						userId: user?.id,
+					});
+
+					return user ? (
 						<GameScreen
 							user={user}
 							gameCode={params.code}
@@ -124,8 +130,8 @@ function Router() {
 							onLogin={handleUserLogin}
 							onLogout={handleLogout}
 						/>
-					)
-				}
+					);
+				}}
 			</Route>
 			<Route>
 				<NotFound />
